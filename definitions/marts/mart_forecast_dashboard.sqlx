@@ -1,0 +1,10 @@
+config {
+  type: "table",
+  schema: "marts",
+  name: "mart_forecast_dashboard",
+  description: "Dashboard Dataset"
+}
+
+SELECT *
+
+FROM ${ref("mart_forecast_features")}

@@ -1,0 +1,20 @@
+config {
+  type: "table",
+  schema: "marts",
+  name: "mart_overworkers",
+  description: "Peak Working Hours"
+}
+
+SELECT
+
+    trip_hour,
+
+    COUNT(*) AS total_trips,
+
+    AVG(trip_seconds) AS avg_duration,
+
+    AVG(trip_total) AS avg_revenue
+
+FROM ${ref("stg_taxi_trips")}
+
+GROUP BY trip_hour

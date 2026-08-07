@@ -1,0 +1,22 @@
+config {
+  type: "table",
+  schema: "marts",
+  name: "mart_business_insight_2",
+  description: "Taxi Company Performance"
+}
+
+SELECT
+
+    company,
+
+    COUNT(*) AS total_trips,
+
+    SUM(trip_total) AS total_revenue,
+
+    AVG(trip_total) AS avg_trip_value,
+
+    AVG(tips) AS avg_tip
+
+FROM ${ref("fact_taxi_trip")}
+
+GROUP BY company

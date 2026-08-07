@@ -1,0 +1,24 @@
+config {
+  type: "table",
+  schema: "marts",
+  name: "mart_business_insight_1",
+  description: "Daily Taxi Operations KPI"
+}
+
+SELECT
+
+    trip_date,
+
+    COUNT(*) AS total_trips,
+
+    SUM(trip_total) AS total_revenue,
+
+    AVG(trip_total) AS avg_trip_value,
+
+    AVG(trip_seconds) AS avg_trip_seconds,
+
+    AVG(trip_miles) AS avg_trip_miles
+
+FROM ${ref("fact_taxi_trip")}
+
+GROUP BY trip_date

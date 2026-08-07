@@ -1,0 +1,22 @@
+config {
+  type: "table",
+  schema: "marts",
+  name: "mart_tip_earners",
+  description: "Highest Tip Earners"
+}
+
+SELECT
+
+    company,
+
+    SUM(tips) AS total_tips,
+
+    AVG(tips) AS average_tip,
+
+    COUNT(*) AS trips
+
+FROM ${ref("fact_taxi_trip")}
+
+GROUP BY company
+
+ORDER BY total_tips DESC

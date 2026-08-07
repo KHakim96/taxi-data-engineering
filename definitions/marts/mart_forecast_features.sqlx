@@ -1,0 +1,26 @@
+config {
+  type: "table",
+  schema: "marts",
+  name: "mart_forecast_features",
+  description: "Daily Forecast Features"
+}
+
+SELECT
+
+    trip_date,
+
+    COUNT(*) AS total_trips,
+
+    SUM(trip_total) AS revenue,
+
+    AVG(trip_seconds) AS avg_trip_seconds,
+
+    AVG(trip_miles) AS avg_trip_miles,
+
+    AVG(fare) AS avg_fare,
+
+    AVG(tips) AS avg_tip
+
+FROM ${ref("fact_taxi_trip")}
+
+GROUP BY trip_date
