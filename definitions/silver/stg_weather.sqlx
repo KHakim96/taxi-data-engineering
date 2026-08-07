@@ -7,7 +7,7 @@ config {
 
 SELECT
 
-  weather_date,
+  CAST(weather_date AS DATE) AS weather_date,
 
   temperature_max,
 
