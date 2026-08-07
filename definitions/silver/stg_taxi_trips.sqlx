@@ -7,65 +7,48 @@ config {
 
 WITH deduplicated AS (
 
-SELECT *
-FROM ${ref("raw_taxi_trips")}
+  SELECT *
+  FROM ${ref("raw_taxi_trips")}
 
-QUALIFY ROW_NUMBER() OVER (
-
-PARTITION BY unique_key
-
-ORDER BY trip_start_timestamp
-
-)=1
+  QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY unique_key
+    ORDER BY trip_start_timestamp
+  ) = 1
 
 )
 
 SELECT
+  unique_key,
+  taxi_id,
 
-unique_key,
+  trip_start_timestamp,
+  trip_end_timestamp,
 
-taxi_id,
+  trip_seconds,
+  trip_miles,
 
-trip_start_timestamp,
+  fare,
+  tips,
+  tolls,
+  extras,
+  trip_total,
 
-trip_end_timestamp,
+  payment_type,
 
-trip_seconds,
+  COALESCE(company, 'Unknown') AS company,
 
-trip_miles,
+  pickup_census_tract,
+  dropoff_census_tract,
 
-fare,
+  pickup_community_area,
+  dropoff_community_area,
 
-tips,
+  pickup_latitude,
+  pickup_longitude,
+  pickup_location,
 
-tolls,
+  dropoff_latitude,
+  dropoff_longitude,
+  dropoff_location
 
-extras,
-
-trip_total,
-
-payment_type,
-
-COALESCE(company,'Unknown') AS company,
-
-pickup_census_tract,
-
-dropoff_census_tract,
-
-pickup_community_area,
-
-dropoff_community_area,
-
-pickup_latitude,
-
-pickup_longitude,
-
-pickup_location,
-
-dropoff_latitude,
-
-dropoff_longitude,
-
-dropoff_location
-
-FROM deduplicated;
+FROM deduplicated
