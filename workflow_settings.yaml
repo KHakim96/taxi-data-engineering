@@ -1,0 +1,6 @@
+defaultProject: taxi-data-engineering-504801
+defaultLocation: US
+defaultDataset: dataform
+defaultAssertionDataset: dataform_assertions
+
+dataformCoreVersion: 3.0.52
