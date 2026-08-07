@@ -1,0 +1,9 @@
+config {
+  type: "table",
+  schema: "bronze",
+  name: "raw_weather",
+  description: "Raw weather data loaded from external API"
+}
+
+SELECT *
+FROM `taxi-data-engineering-504801.bronze.raw_weather`
