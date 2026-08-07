@@ -13,16 +13,6 @@ SELECT
 
   trip_date,
 
-  trip_year,
-
-  trip_month,
-
-  trip_day,
-
-  trip_day_of_week,
-
-  trip_hour,
-
   trip_seconds,
 
   trip_miles,

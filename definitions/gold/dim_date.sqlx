@@ -17,8 +17,10 @@ SELECT DISTINCT
 
   trip_day_of_week,
 
+  trip_hour,
+
   CASE
-    WHEN trip_day_of_week IN (1,7) THEN TRUE
+    WHEN trip_day_of_week IN (1, 7) THEN TRUE
     ELSE FALSE
   END AS is_weekend
 
