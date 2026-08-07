@@ -1,0 +1,9 @@
+config {
+  type: "table",
+  schema: "bronze",
+  name: "raw_taxi_trips",
+  description: "Raw Chicago Taxi Trips dataset from BigQuery Public Dataset"
+}
+
+SELECT *
+FROM `bigquery-public-data.chicago_taxi_trips.taxi_trips`
