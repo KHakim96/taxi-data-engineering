@@ -1,0 +1,38 @@
+config {
+  type: "table",
+  schema: "silver",
+  name: "stg_weather",
+  description: "Standardized daily weather data"
+}
+
+SELECT
+
+  weather_date,
+
+  temperature_max,
+
+  temperature_min,
+
+  temperature_mean,
+
+  precipitation_mm,
+
+  snowfall_cm,
+
+  wind_speed_kmh,
+
+  precipitation_mm > 0 AS is_raining,
+
+  snowfall_cm > 0 AS is_snowing,
+
+  CASE
+
+    WHEN snowfall_cm > 0 THEN 'Snow'
+
+    WHEN precipitation_mm > 0 THEN 'Rain'
+
+    ELSE 'Clear'
+
+  END AS weather_type
+
+FROM ${ref("raw_weather")}

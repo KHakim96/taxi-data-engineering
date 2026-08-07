@@ -1,0 +1,58 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "fact_daily_demand",
+  description: "Daily Taxi Demand with Weather"
+}
+
+WITH daily_trips AS (
+
+SELECT
+
+    trip_date,
+
+    COUNT(*) AS total_trips,
+
+    SUM(trip_total) AS revenue,
+
+    AVG(trip_seconds) AS avg_trip_seconds,
+
+    AVG(trip_miles) AS avg_trip_miles,
+
+    AVG(fare) AS avg_fare,
+
+    AVG(tips) AS avg_tip
+
+FROM ${ref("fact_taxi_trip")}
+
+GROUP BY trip_date
+
+)
+
+SELECT
+
+    d.*,
+
+    w.temperature_max,
+
+    w.temperature_min,
+
+    w.temperature_mean,
+
+    w.precipitation_mm,
+
+    w.snowfall_cm,
+
+    w.wind_speed_kmh,
+
+    w.is_raining,
+
+    w.is_snowing,
+
+    w.weather_type
+
+FROM daily_trips d
+
+LEFT JOIN ${ref("dim_weather")} w
+
+ON d.trip_date = w.weather_date

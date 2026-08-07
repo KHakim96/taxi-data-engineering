@@ -1,0 +1,10 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "dim_weather",
+  description: "Weather Dimension"
+}
+
+SELECT *
+
+FROM ${ref("stg_weather")}
