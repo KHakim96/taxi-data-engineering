@@ -2,3 +2,9 @@
 __pycache__/
 *.pyc
 .env
+# ML artifacts
+ml/models/*.pkl
+ml/outputs/*.csv
+ml/outputs/*.png
+ml/outputs/*.json
+
