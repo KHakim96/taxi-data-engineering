@@ -1,0 +1,9 @@
+config {
+  type: "table",
+  schema: "bronze",
+  name: "raw_holidays",
+  description: "Raw holiday data loaded from external API"
+}
+
+SELECT *
+FROM `taxi-data-engineering-504801.bronze.raw_holidays`

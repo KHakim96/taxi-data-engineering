@@ -1,0 +1,18 @@
+config {
+  type: "table",
+  schema: "silver",
+  name: "stg_holidays",
+  description: "Standardized holiday data"
+}
+
+SELECT
+
+  CAST(holiday_date AS DATE) AS holiday_date,
+
+  holiday_name,
+
+  country,
+
+  TRUE AS is_holiday
+
+FROM ${ref("raw_holidays")}

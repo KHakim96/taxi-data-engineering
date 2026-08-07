@@ -1,0 +1,10 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "dim_holiday",
+  description: "Holiday Dimension"
+}
+
+SELECT *
+
+FROM ${ref("stg_holidays")}

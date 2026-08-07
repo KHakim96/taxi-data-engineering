@@ -34,25 +34,22 @@ SELECT
     d.*,
 
     w.temperature_max,
-
     w.temperature_min,
-
     w.temperature_mean,
-
     w.precipitation_mm,
-
     w.snowfall_cm,
-
     w.wind_speed_kmh,
-
     w.is_raining,
-
     w.is_snowing,
+    w.weather_type,
 
-    w.weather_type
+    IFNULL(h.is_holiday, FALSE) AS is_holiday,
+    h.holiday_name
 
 FROM daily_trips d
 
 LEFT JOIN ${ref("dim_weather")} w
-
 ON d.trip_date = w.weather_date
+
+LEFT JOIN ${ref("dim_holiday")} h
+ON d.trip_date = h.holiday_date
