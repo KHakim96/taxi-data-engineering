@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "silver",
   name: "stg_taxi_trips",
-  description: "Cleaned Chicago Taxi Trips"
+  description: "Cleaned and standardized Chicago Taxi Trips"
 }
 
 WITH deduplicated AS (
@@ -18,11 +18,19 @@ WITH deduplicated AS (
 )
 
 SELECT
+
   unique_key,
   taxi_id,
 
   trip_start_timestamp,
   trip_end_timestamp,
+
+  DATE(trip_start_timestamp) AS trip_date,
+  EXTRACT(YEAR FROM trip_start_timestamp) AS trip_year,
+  EXTRACT(MONTH FROM trip_start_timestamp) AS trip_month,
+  EXTRACT(DAY FROM trip_start_timestamp) AS trip_day,
+  EXTRACT(DAYOFWEEK FROM trip_start_timestamp) AS trip_day_of_week,
+  EXTRACT(HOUR FROM trip_start_timestamp) AS trip_hour,
 
   trip_seconds,
   trip_miles,
