@@ -1,0 +1,7 @@
+config {
+  type: "assertion"
+}
+
+SELECT *
+FROM ${ref("stg_taxi_trips")}
+WHERE unique_key IS NULL

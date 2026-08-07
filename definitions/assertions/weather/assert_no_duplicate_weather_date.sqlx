@@ -1,0 +1,10 @@
+config {
+  type: "assertion"
+}
+
+SELECT
+  weather_date,
+  COUNT(*) AS duplicate_count
+FROM ${ref("stg_weather")}
+GROUP BY weather_date
+HAVING COUNT(*) > 1

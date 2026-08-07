@@ -1,0 +1,9 @@
+config {
+  type: "assertion"
+}
+
+SELECT *
+FROM ${ref("stg_weather")}
+WHERE temperature_max IS NULL
+   OR temperature_min IS NULL
+   OR temperature_mean IS NULL

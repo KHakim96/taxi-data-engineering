@@ -1,0 +1,7 @@
+config {
+  type: "assertion"
+}
+
+SELECT *
+FROM ${ref("stg_weather")}
+WHERE snowfall_cm < 0

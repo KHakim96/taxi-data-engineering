@@ -1,0 +1,10 @@
+config {
+  type: "assertion"
+}
+
+SELECT
+  unique_key,
+  COUNT(*) AS duplicate_count
+FROM ${ref("stg_taxi_trips")}
+GROUP BY unique_key
+HAVING COUNT(*) > 1

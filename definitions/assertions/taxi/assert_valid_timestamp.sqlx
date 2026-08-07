@@ -1,0 +1,9 @@
+config {
+  type: "assertion"
+}
+
+SELECT *
+FROM ${ref("stg_taxi_trips")}
+WHERE trip_start_timestamp IS NULL
+   OR trip_end_timestamp IS NULL
+   OR trip_end_timestamp < trip_start_timestamp

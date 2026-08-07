@@ -1,0 +1,7 @@
+config {
+  type: "assertion"
+}
+
+SELECT *
+FROM ${ref("stg_holidays")}
+WHERE holiday_date IS NULL
