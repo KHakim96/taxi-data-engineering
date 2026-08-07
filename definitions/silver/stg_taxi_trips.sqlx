@@ -1,0 +1,71 @@
+config {
+  type: "table",
+  schema: "silver",
+  name: "stg_taxi_trips",
+  description: "Cleaned Chicago Taxi Trips"
+}
+
+WITH deduplicated AS (
+
+SELECT *
+FROM ${ref("raw_taxi_trips")}
+
+QUALIFY ROW_NUMBER() OVER (
+
+PARTITION BY unique_key
+
+ORDER BY trip_start_timestamp
+
+)=1
+
+)
+
+SELECT
+
+unique_key,
+
+taxi_id,
+
+trip_start_timestamp,
+
+trip_end_timestamp,
+
+trip_seconds,
+
+trip_miles,
+
+fare,
+
+tips,
+
+tolls,
+
+extras,
+
+trip_total,
+
+payment_type,
+
+COALESCE(company,'Unknown') AS company,
+
+pickup_census_tract,
+
+dropoff_census_tract,
+
+pickup_community_area,
+
+dropoff_community_area,
+
+pickup_latitude,
+
+pickup_longitude,
+
+pickup_location,
+
+dropoff_latitude,
+
+dropoff_longitude,
+
+dropoff_location
+
+FROM deduplicated;
