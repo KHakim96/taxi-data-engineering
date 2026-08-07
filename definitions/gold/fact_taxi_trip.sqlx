@@ -1,0 +1,48 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "fact_taxi_trip",
+  description: "Taxi Trip Fact Table"
+}
+
+SELECT
+
+  unique_key,
+
+  taxi_id,
+
+  trip_date,
+
+  trip_year,
+
+  trip_month,
+
+  trip_day,
+
+  trip_day_of_week,
+
+  trip_hour,
+
+  trip_seconds,
+
+  trip_miles,
+
+  fare,
+
+  tips,
+
+  tolls,
+
+  extras,
+
+  trip_total,
+
+  payment_type,
+
+  company,
+
+  pickup_community_area,
+
+  dropoff_community_area
+
+FROM ${ref("stg_taxi_trips")}
