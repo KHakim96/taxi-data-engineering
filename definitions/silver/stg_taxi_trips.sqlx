@@ -60,3 +60,7 @@ SELECT
   dropoff_location
 
 FROM deduplicated
+
+WHERE trip_start_timestamp IS NOT NULL
+  AND trip_end_timestamp IS NOT NULL
+  AND trip_end_timestamp >= trip_start_timestamp
