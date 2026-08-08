@@ -2,19 +2,82 @@ config {
   type: "table",
   schema: "gold",
   name: "overworkers",
-  description: "Peak Working Hours"
+  description: "Aggregated taxi driver shift analysis, exposing long shift counts and total hours for dynamic downstream BI filtering."
 }
 
+WITH ordered_trips AS (
+  SELECT
+    taxi_id,
+    trip_start_datetime,
+    trip_end_datetime,
+    trip_total,
+    LAG(trip_end_datetime) OVER (
+      PARTITION BY taxi_id
+      ORDER BY trip_start_datetime
+    ) AS previous_trip_end
+  FROM ${ref("stg_taxi_trips")}
+),
+
+shift_flags AS (
+  SELECT
+    *,
+    CASE
+      WHEN previous_trip_end IS NULL THEN 1
+      WHEN DATETIME_DIFF(trip_start_datetime, previous_trip_end, MINUTE) >= 480 THEN 1
+      ELSE 0
+    END AS new_shift
+  FROM ordered_trips
+),
+
+shift_numbered AS (
+  SELECT
+    *,
+    SUM(new_shift) OVER (
+      PARTITION BY taxi_id
+      ORDER BY trip_start_datetime
+      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS shift_id
+  FROM shift_flags
+),
+
+shift_summary AS (
+  SELECT
+    taxi_id,
+    shift_id,
+    MIN(trip_start_datetime) AS shift_start,
+    MAX(trip_end_datetime) AS shift_end,
+    DATETIME_DIFF(
+      MAX(trip_end_datetime),
+      MIN(trip_start_datetime),
+      MINUTE
+    ) / 60.0 AS shift_hours,
+    COUNT(*) AS trips_in_shift,
+    SUM(trip_total) AS shift_revenue
+  FROM shift_numbered
+  GROUP BY
+    taxi_id,
+    shift_id
+)
+
 SELECT
+  taxi_id,
+  COUNT(*) AS total_shifts,
+  ROUND(SUM(shift_hours), 2) AS total_shift_hours,
+  ROUND(AVG(shift_hours), 2) AS average_shift_hours,
+  MAX(shift_hours) AS longest_shift_hours,
+  
+  COUNTIF(shift_hours >= 10) AS long_shift_count,
+  COUNTIF(shift_hours >= 12) AS over_limit_shift_count,
+  
+  SUM(trips_in_shift) AS total_trips,
+  ROUND(SUM(shift_revenue), 2) AS total_revenue
 
-    trip_hour,
+FROM shift_summary
+GROUP BY taxi_id
 
-    COUNT(*) AS total_trips,
-
-    AVG(trip_seconds) AS avg_duration,
-
-    AVG(trip_total) AS avg_revenue
-
-FROM ${ref("stg_taxi_trips")}
-
-GROUP BY trip_hour
+ORDER BY
+  total_shift_hours DESC,
+  long_shift_count DESC,
+  over_limit_shift_count DESC,
+  total_revenue DESC,
+  taxi_id
