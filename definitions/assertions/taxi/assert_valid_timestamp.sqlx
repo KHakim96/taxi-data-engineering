@@ -4,10 +4,6 @@ config {
 
 SELECT *
 FROM ${ref("stg_taxi_trips")}
-WHERE trip_start_timestamp IS NOT NULL
-  AND trip_end_timestamp IS NOT NULL
-  AND trip_end_timestamp >= trip_start_timestamp
-
-
-   
-   
+WHERE trip_start_timestamp IS NULL
+   OR trip_end_timestamp IS NULL
+   OR trip_end_timestamp < trip_start_timestamp
