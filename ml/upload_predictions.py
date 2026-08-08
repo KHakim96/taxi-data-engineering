@@ -13,7 +13,11 @@ df = pd.read_csv("ml/outputs/predictions.csv")
 
 table_id = f"{PROJECT_ID}.{PREDICTION_DATASET}.{PREDICTION_TABLE}"
 
-job = client.load_table_from_dataframe(df, table_id)
+job = client.load_table_from_dataframe(
+    df,
+    table_id,
+    job_config=bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
+)
 
 job.result()
 

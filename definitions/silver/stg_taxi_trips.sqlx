@@ -15,6 +15,16 @@ WITH deduplicated AS (
     ORDER BY trip_start_timestamp
   ) = 1
 
+),
+
+localized AS (
+
+  SELECT
+    *,
+    DATETIME(trip_start_timestamp, "America/Chicago") AS trip_start_datetime,
+    DATETIME(trip_end_timestamp, "America/Chicago") AS trip_end_datetime
+  FROM deduplicated
+
 )
 
 SELECT
@@ -25,12 +35,16 @@ SELECT
   trip_start_timestamp,
   trip_end_timestamp,
 
-  DATE(trip_start_timestamp) AS trip_date,
-  EXTRACT(YEAR FROM trip_start_timestamp) AS trip_year,
-  EXTRACT(MONTH FROM trip_start_timestamp) AS trip_month,
-  EXTRACT(DAY FROM trip_start_timestamp) AS trip_day,
-  EXTRACT(DAYOFWEEK FROM trip_start_timestamp) AS trip_day_of_week,
-  EXTRACT(HOUR FROM trip_start_timestamp) AS trip_hour,
+  trip_start_datetime,
+  trip_end_datetime,
+
+  DATE(trip_start_datetime) AS trip_date,
+
+  EXTRACT(YEAR FROM trip_start_datetime) AS trip_year,
+  EXTRACT(MONTH FROM trip_start_datetime) AS trip_month,
+  EXTRACT(DAY FROM trip_start_datetime) AS trip_day,
+  EXTRACT(DAYOFWEEK FROM trip_start_datetime) AS trip_day_of_week,
+  EXTRACT(HOUR FROM trip_start_datetime) AS trip_hour,
 
   trip_seconds,
   trip_miles,
@@ -59,7 +73,7 @@ SELECT
   dropoff_longitude,
   dropoff_location
 
-FROM deduplicated
+FROM localized
 
 WHERE trip_start_timestamp IS NOT NULL
   AND trip_end_timestamp IS NOT NULL
