@@ -10,4 +10,4 @@ SELECT
   COUNTIF(trip_total IS NULL) AS trip_total_nulls,
   COUNTIF(payment_type IS NULL) AS payment_type_nulls,
   COUNTIF(company IS NULL) AS company_nulls
-FROM `taxi-data-engineering-504801.bronze.raw_taxi_trips`;
+FROM `taxi-data-engineering-504910.bronze.raw_taxi_trips`;

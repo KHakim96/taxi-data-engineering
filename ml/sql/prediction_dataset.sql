@@ -10,7 +10,7 @@ SELECT
         ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING
     ) AS rolling_7d
 
-FROM `taxi-data-engineering-504801.gold.fact_daily_demand`
+FROM `taxi-data-engineering-504910.gold.fact_daily_demand`
 
 )
 

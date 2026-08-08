@@ -9,4 +9,4 @@ SELECT
   COUNTIF(trip_total > 1000) AS total_over_1000,
   COUNTIF(trip_seconds > 14400) AS trips_over_4_hours
 
-FROM `taxi-data-engineering-504801.bronze.raw_taxi_trips`;
+FROM `taxi-data-engineering-504910.bronze.raw_taxi_trips`;
