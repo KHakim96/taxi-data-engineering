@@ -1,0 +1,10 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "forecast_dashboard",
+  description: "Dashboard Dataset"
+}
+
+SELECT *
+
+FROM ${ref("forecast_features")}

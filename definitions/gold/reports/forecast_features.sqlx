@@ -1,7 +1,7 @@
 config {
   type: "table",
-  schema: "marts",
-  name: "mart_forecast_features",
+  schema: "gold",
+  name: "forecast_features",
   description: "Daily Forecast Features"
 }
 

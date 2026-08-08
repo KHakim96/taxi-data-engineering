@@ -1,7 +1,7 @@
 config {
   type: "table",
-  schema: "marts",
-  name: "mart_overworkers",
+  schema: "gold",
+  name: "overworkers",
   description: "Peak Working Hours"
 }
 

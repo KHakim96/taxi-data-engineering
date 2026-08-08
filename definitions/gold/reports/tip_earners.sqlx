@@ -1,7 +1,7 @@
 config {
   type: "table",
-  schema: "marts",
-  name: "mart_tip_earners",
+  schema: "gold",
+  name: "tip_earners",
   description: "Highest Tip Earners"
 }
 
