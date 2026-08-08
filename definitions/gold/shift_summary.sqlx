@@ -9,6 +9,8 @@ WITH trip_starts AS (
     SELECT
         unique_key,
         taxi_id,
+        trip_start_timestamp,
+        trip_end_timestamp,
         trip_start_datetime,
         trip_end_datetime,
         trip_total,
@@ -49,7 +51,7 @@ shift_metrics AS (
         shift_id,
         MIN(trip_start_datetime) AS shift_start_datetime,
         MAX(trip_end_datetime) AS shift_end_datetime,
-        ROUND(DATETIME_DIFF(MAX(trip_end_datetime), MIN(trip_start_datetime), SECOND) / 3600.0, 2) AS shift_duration_hours,
+        ROUND(TIMESTAMP_DIFF(MAX(trip_end_timestamp), MIN(trip_start_timestamp), SECOND) / 3600.0, 2) AS shift_duration_hours,
         COUNT(*) AS trips_in_shift,
         SUM(trip_total) AS shift_revenue
     FROM shift_ids
