@@ -79,12 +79,12 @@ WHERE trip_start_timestamp IS NOT NULL
   AND trip_end_timestamp IS NOT NULL
   AND trip_end_timestamp >= trip_start_timestamp
 
-  -- Remove corrupted records with impossible duration and missing trip_seconds
-  AND NOT (
-    trip_seconds IS NULL
-    AND TIMESTAMP_DIFF(
-          trip_end_timestamp,
-          trip_start_timestamp,
-          HOUR
-        ) > 24
-  )
+  -- Remove corrupted records
+  AND trip_seconds IS NOT NULL
+
+  -- Remove impossible trips (>24 hours)
+  AND TIMESTAMP_DIFF(
+        trip_end_timestamp,
+        trip_start_timestamp,
+        HOUR
+      ) <= 24
