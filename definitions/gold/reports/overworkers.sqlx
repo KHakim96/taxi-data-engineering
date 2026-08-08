@@ -2,100 +2,18 @@ config {
   type: "table",
   schema: "gold",
   name: "overworkers",
-  description: "Aggregated taxi driver shift analysis. Shifts are sessionized per taxi_id using an 8-hour rest-gap rule anchored on a running MAX of prior trip ends, so overlapping or interleaved trips can no longer be stitched into impossible multi-day shifts. Long-shift metrics expose drivers regularly working >12h shifts for downstream BI filtering."
+  description: "Aggregates taxi shift data to identify potential overworkers. Since the dataset does not have driver identifiers, we use taxi_id. Shifts are categorized into Normal, Overworker, and Shared Vehicle Fleet based on their duration to isolate single-driver behavior from 24/7 fleet operations."
 }
 
-WITH ordered_trips AS (
-  SELECT
-    unique_key,
-    taxi_id,
-    trip_start_datetime,
-    trip_end_datetime,
-    trip_total
-  FROM ${ref("stg_taxi_trips")}
-),
-
-shift_anchored AS (
-  SELECT
-    *,
-    MAX(trip_end_datetime) OVER (
-      PARTITION BY taxi_id
-      ORDER BY
-        trip_start_datetime,
-        trip_end_datetime,
-        unique_key
-      ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-    ) AS last_shift_end
-  FROM ordered_trips
-),
-
-shift_flags AS (
-  SELECT
-    *,
-    CASE
-      WHEN last_shift_end IS NULL THEN 1
-      WHEN DATETIME_DIFF(
-        trip_start_datetime,
-        last_shift_end,
-        MINUTE
-      ) >= 480 THEN 1
-      ELSE 0
-    END AS new_shift
-  FROM shift_anchored
-),
-
-shift_numbered AS (
-  SELECT
-    *,
-    SUM(new_shift) OVER (
-      PARTITION BY taxi_id
-      ORDER BY
-        trip_start_datetime,
-        trip_end_datetime,
-        unique_key
-      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-    ) AS shift_id
-  FROM shift_flags
-),
-
-shift_summary AS (
-  SELECT
-    taxi_id,
-    shift_id,
-    MIN(trip_start_datetime) AS shift_start,
-    MAX(trip_end_datetime) AS shift_end,
-    DATETIME_DIFF(
-      MAX(trip_end_datetime),
-      MIN(trip_start_datetime),
-      MINUTE
-    ) / 60.0 AS shift_hours,
-    COUNT(*) AS trips_in_shift,
-    SUM(trip_total) AS shift_revenue
-  FROM shift_numbered
-  GROUP BY
-    taxi_id,
-    shift_id
-)
-
 SELECT
-  taxi_id,
-  COUNT(*) AS total_shifts,
-  ROUND(SUM(shift_hours), 2) AS total_shift_hours,
-  ROUND(AVG(shift_hours), 2) AS average_shift_hours,
-  MAX(shift_hours) AS longest_shift_hours,
-
-  COUNTIF(shift_hours >= 12) AS full_shift_count,
-  COUNTIF(shift_hours > 12) AS over_limit_shift_count,
-
-  SUM(trips_in_shift) AS total_trips,
-  ROUND(SUM(shift_revenue), 2) AS total_revenue
-
-FROM shift_summary
+    taxi_id,
+    COUNT(*) AS total_shifts,
+    COUNTIF(shift_classification = 'Normal') AS normal_shift_count,
+    COUNTIF(shift_classification = 'Overworker') AS overworker_shift_count,
+    COUNTIF(shift_classification = 'Shared Vehicle Fleet') AS shared_vehicle_shift_count,
+    ROUND(AVG(shift_duration_hours), 2) AS average_shift_hours,
+    MAX(shift_duration_hours) AS longest_shift_hours,
+    SUM(trips_in_shift) AS total_trips,
+    SUM(shift_revenue) AS total_revenue
+FROM ${ref("shift_summary")}
 GROUP BY taxi_id
-
-ORDER BY
-  over_limit_shift_count DESC,
-  full_shift_count DESC,
-  total_shift_hours DESC,
-  total_revenue DESC,
-  taxi_id
