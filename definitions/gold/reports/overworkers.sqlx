@@ -23,7 +23,13 @@ shift_flags AS (
     *,
     CASE
       WHEN previous_trip_end IS NULL THEN 1
+
+      -- New local day = new shift
+      WHEN DATE(trip_start_datetime) <> DATE(previous_trip_end) THEN 1
+
+      -- 8-hour break = new shift
       WHEN DATETIME_DIFF(trip_start_datetime, previous_trip_end, MINUTE) >= 480 THEN 1
+
       ELSE 0
     END AS new_shift
   FROM ordered_trips
@@ -66,8 +72,8 @@ SELECT
   ROUND(AVG(shift_hours), 2) AS average_shift_hours,
   MAX(shift_hours) AS longest_shift_hours,
   
-  COUNTIF(shift_hours >= 10) AS long_shift_count,
-  COUNTIF(shift_hours >= 12) AS over_limit_shift_count,
+  COUNTIF(shift_hours >= 12) AS full_shift_count,
+  COUNTIF(shift_hours > 12) AS over_limit_shift_count,
   
   SUM(trips_in_shift) AS total_trips,
   ROUND(SUM(shift_revenue), 2) AS total_revenue
