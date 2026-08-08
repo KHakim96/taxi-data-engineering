@@ -2,37 +2,46 @@ config {
   type: "table",
   schema: "gold",
   name: "overworkers",
-  description: "Aggregated taxi driver shift analysis, exposing long shift counts and total hours for dynamic downstream BI filtering."
+  description: "Aggregated taxi driver shift analysis. Shifts are sessionized per taxi_id using an 8-hour rest-gap rule anchored on a running MAX of prior trip ends, so overlapping or interleaved trips can no longer be stitched into impossible multi-day shifts. Long-shift metrics expose drivers regularly working >12h shifts for downstream BI filtering."
 }
 
 WITH ordered_trips AS (
   SELECT
+    unique_key,
     taxi_id,
     trip_start_datetime,
     trip_end_datetime,
-    trip_total,
-    LAG(trip_end_datetime) OVER (
-      PARTITION BY taxi_id
-      ORDER BY trip_start_datetime
-    ) AS previous_trip_end
+    trip_total
   FROM ${ref("stg_taxi_trips")}
+),
+
+shift_anchored AS (
+  SELECT
+    *,
+    MAX(trip_end_datetime) OVER (
+      PARTITION BY taxi_id
+      ORDER BY
+        trip_start_datetime,
+        trip_end_datetime,
+        unique_key
+      ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+    ) AS last_shift_end
+  FROM ordered_trips
 ),
 
 shift_flags AS (
   SELECT
     *,
     CASE
-      WHEN previous_trip_end IS NULL THEN 1
-
-      -- New local day = new shift
-      WHEN DATE(trip_start_datetime) <> DATE(previous_trip_end) THEN 1
-
-      -- 8-hour break = new shift
-      WHEN DATETIME_DIFF(trip_start_datetime, previous_trip_end, MINUTE) >= 480 THEN 1
-
+      WHEN last_shift_end IS NULL THEN 1
+      WHEN DATETIME_DIFF(
+        trip_start_datetime,
+        last_shift_end,
+        MINUTE
+      ) >= 480 THEN 1
       ELSE 0
     END AS new_shift
-  FROM ordered_trips
+  FROM shift_anchored
 ),
 
 shift_numbered AS (
@@ -40,7 +49,10 @@ shift_numbered AS (
     *,
     SUM(new_shift) OVER (
       PARTITION BY taxi_id
-      ORDER BY trip_start_datetime
+      ORDER BY
+        trip_start_datetime,
+        trip_end_datetime,
+        unique_key
       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS shift_id
   FROM shift_flags
@@ -71,10 +83,10 @@ SELECT
   ROUND(SUM(shift_hours), 2) AS total_shift_hours,
   ROUND(AVG(shift_hours), 2) AS average_shift_hours,
   MAX(shift_hours) AS longest_shift_hours,
-  
+
   COUNTIF(shift_hours >= 12) AS full_shift_count,
   COUNTIF(shift_hours > 12) AS over_limit_shift_count,
-  
+
   SUM(trips_in_shift) AS total_trips,
   ROUND(SUM(shift_revenue), 2) AS total_revenue
 
@@ -82,8 +94,8 @@ FROM shift_summary
 GROUP BY taxi_id
 
 ORDER BY
-  total_shift_hours DESC,
-  full_shift_count DESC,
   over_limit_shift_count DESC,
+  full_shift_count DESC,
+  total_shift_hours DESC,
   total_revenue DESC,
   taxi_id
