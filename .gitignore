@@ -8,3 +8,4 @@ ml/outputs/*.csv
 ml/outputs/*.png
 ml/outputs/*.json
 
+node_modules/
