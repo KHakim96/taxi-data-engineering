@@ -83,7 +83,7 @@ GROUP BY taxi_id
 
 ORDER BY
   total_shift_hours DESC,
-  long_shift_count DESC,
+  full_shift_count DESC,
   over_limit_shift_count DESC,
   total_revenue DESC,
   taxi_id
