@@ -11,4 +11,4 @@ SELECT
     p.predicted_total_trips
 FROM ${ref("fact_daily_demand")} f
 LEFT JOIN ${ref("model_predictions")} p
-    ON f.trip_date = p.trip_date
+    ON f.trip_date = DATE(p.trip_date)
