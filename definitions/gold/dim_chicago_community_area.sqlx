@@ -81,6 +81,6 @@ SELECT * FROM UNNEST([
   STRUCT(73, 'Washington Heights'),
   STRUCT(74, 'Mount Greenwood'),
   STRUCT(75, 'Morgan Park'),
-  STRUCT(76, 'O''Hare'),
+  STRUCT(76, 'O\'Hare'),
   STRUCT(77, 'Edgewater')
 ])
