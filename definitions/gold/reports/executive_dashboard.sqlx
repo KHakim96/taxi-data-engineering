@@ -1,0 +1,73 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "executive_dashboard",
+  description: "Single denormalized Executive Dashboard OBT for Looker Studio, combining atomic trip facts with weather, holiday, and community area dimensions."
+}
+
+/*
+===============================================================================
+EXECUTIVE DASHBOARD ONE BIG TABLE (OBT)
+===============================================================================
+Purpose:
+  Serves as the single unified data source for the Looker Studio Executive Dashboard.
+  Denormalizes core Gold facts with conformed Gold dimensions to ensure cross-filter
+  interactivity and consistent metric calculation across all visual components.
+
+Source Layer:
+  - Gold Layer: fact_taxi_trip, dim_weather, dim_holiday, dim_chicago_community_area
+===============================================================================
+*/
+
+SELECT
+  -- Primary Key & Identifiers
+  f.unique_key,
+  f.taxi_id,
+
+  -- Temporal Dimensions
+  f.trip_date,
+  EXTRACT(DAYOFWEEK FROM f.trip_date) IN (1, 7) AS is_weekend,
+  EXTRACT(DAYOFWEEK FROM f.trip_date) AS day_of_week,
+
+  -- Operational & Categorical Dimensions
+  COALESCE(f.company, 'Unknown') AS company,
+  COALESCE(f.payment_type, 'Unknown') AS payment_type,
+
+  -- Geographic Dimensions
+  f.pickup_community_area,
+  COALESCE(c.community_area_name, 'Unknown') AS pickup_community_area_name,
+  f.dropoff_community_area,
+  f.pickup_location,
+
+  -- Environmental & Weather Dimensions
+  COALESCE(w.weather_type, 'Clear') AS weather_type,
+  COALESCE(w.is_raining, FALSE) AS is_raining,
+  COALESCE(w.is_snowing, FALSE) AS is_snowing,
+  w.temperature_mean,
+
+  -- Calendar & Holiday Dimensions
+  COALESCE(h.is_holiday, FALSE) AS is_holiday,
+  COALESCE(h.holiday_name, 'None') AS holiday_name,
+
+  -- Numeric Financial & Performance Metrics
+  f.fare,
+  f.tips,
+  f.tolls,
+  f.extras,
+  f.trip_total,
+  f.trip_miles,
+  f.trip_seconds
+
+FROM ${ref("fact_taxi_trip")} f
+
+-- Join Weather dimension on Date
+LEFT JOIN ${ref("dim_weather")} w
+  ON f.trip_date = w.weather_date
+
+-- Join Holiday dimension on Date
+LEFT JOIN ${ref("dim_holiday")} h
+  ON f.trip_date = h.holiday_date
+
+-- Join Chicago Community Area dimension on Pickup Area ID
+LEFT JOIN ${ref("dim_chicago_community_area")} c
+  ON SAFE_CAST(f.pickup_community_area AS INT64) = c.community_area_id
