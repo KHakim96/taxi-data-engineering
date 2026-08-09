@@ -37,7 +37,6 @@ SELECT
   f.pickup_community_area,
   COALESCE(c.community_area_name, 'Unknown') AS pickup_community_area_name,
   f.dropoff_community_area,
-  f.pickup_location,
 
   -- Environmental & Weather Dimensions
   COALESCE(w.weather_type, 'Clear') AS weather_type,
