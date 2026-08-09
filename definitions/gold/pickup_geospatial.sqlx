@@ -49,6 +49,7 @@ SELECT
   t.trip_date,
   t.pickup_location,
   t.pickup_community_area,
+  c.community_area_name AS pickup_community_area_name,
   
   -- Holiday Dimensions
   COALESCE(h.is_holiday, FALSE) AS is_holiday,
@@ -75,3 +76,5 @@ LEFT JOIN ${ref("stg_holidays")} h
   ON t.trip_date = h.holiday_date
 LEFT JOIN ${ref("stg_weather")} w
   ON t.trip_date = w.weather_date
+LEFT JOIN ${ref("dim_chicago_community_area")} c
+  ON SAFE_CAST(t.pickup_community_area AS INT64) = c.community_area_id
