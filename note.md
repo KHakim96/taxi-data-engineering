@@ -9,7 +9,7 @@ SELECT
   DATETIME(trip_start_timestamp, "America/Chicago") AS chicago_time,
   EXTRACT(HOUR FROM trip_start_timestamp) AS utc_hour,
   EXTRACT(HOUR FROM DATETIME(trip_start_timestamp, "America/Chicago")) AS chicago_hour
-FROM `taxi-data-engineering-504910.bronze.raw_taxi_trips`
+FROM `taxi-data-engineering-504801.bronze.raw_taxi_trips`
 LIMIT 10;
 
 ###Chicago = UTC - 6 hours   (Winter) CST = Central Standard Time

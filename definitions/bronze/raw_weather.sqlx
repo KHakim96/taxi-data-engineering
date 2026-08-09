@@ -6,4 +6,4 @@ config {
 }
 
 SELECT *
-FROM `taxi-data-engineering-504910.bronze.raw_weather`
+FROM `taxi-data-engineering-504801.bronze.raw_weather`

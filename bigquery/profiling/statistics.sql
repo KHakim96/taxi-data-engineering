@@ -19,4 +19,4 @@ SELECT
     MAX(trip_total) AS max_trip_total,
     AVG(trip_total) AS avg_trip_total
 
-FROM `taxi-data-engineering-504910.bronze.raw_taxi_trips`;
+FROM `taxi-data-engineering-504801.bronze.raw_taxi_trips`;

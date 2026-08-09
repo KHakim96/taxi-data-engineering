@@ -7,4 +7,4 @@ SELECT
 
     MAX(trip_start_timestamp) AS last_trip
 
-FROM `taxi-data-engineering-504910.bronze.raw_taxi_trips`;
+FROM `taxi-data-engineering-504801.bronze.raw_taxi_trips`;
