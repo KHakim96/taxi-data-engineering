@@ -48,6 +48,11 @@ WITH daily_trips AS (
 SELECT
 t.trip_date,
 
+ST_GEOGPOINT(
+  ST_X(ST_GEOGFROMTEXT(t.pickup_location)),
+  ST_Y(ST_GEOGFROMTEXT(t.pickup_location))
+) AS pickup_geography,
+
 -- Geographic Fields for Looker Studio
 t.pickup_location,
 ST_Y(ST_GEOGFROMTEXT(t.pickup_location)) AS latitude,
