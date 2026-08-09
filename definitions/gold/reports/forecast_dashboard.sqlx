@@ -2,9 +2,13 @@ config {
   type: "table",
   schema: "gold",
   name: "forecast_dashboard",
-  description: "Dashboard Dataset"
+  description: "Dashboard Dataset combining historical actuals, weather, holidays, and ML predictions."
 }
 
-SELECT *
-
-FROM ${ref("forecast_features")}
+SELECT
+    f.*,
+    EXTRACT(DAYOFWEEK FROM f.trip_date) IN (1, 7) AS is_weekend,
+    p.predicted_total_trips
+FROM ${ref("fact_daily_demand")} f
+LEFT JOIN ${ref("model_predictions")} p
+    ON f.trip_date = p.trip_date

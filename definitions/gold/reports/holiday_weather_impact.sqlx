@@ -1,0 +1,12 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "holiday_weather_impact",
+  description: "Presentation layer for analyzing the impact of holidays, weekends, and weather on daily taxi demand."
+}
+
+SELECT
+    f.*,
+    EXTRACT(DAYOFWEEK FROM f.trip_date) IN (1, 7) AS is_weekend,
+    EXTRACT(DAYOFWEEK FROM f.trip_date) AS day_of_week
+FROM ${ref("fact_daily_demand")} f

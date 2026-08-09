@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  schema: "ml",
+  name: "model_predictions",
+  description: "ML model predictions for daily taxi trips output by Python pipeline."
+}

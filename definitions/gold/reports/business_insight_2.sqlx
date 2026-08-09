@@ -6,17 +6,14 @@ config {
 }
 
 SELECT
-
+    trip_date,
     company,
-
     COUNT(*) AS total_trips,
-
     SUM(trip_total) AS total_revenue,
-
-    AVG(trip_total) AS avg_trip_value,
-
-    AVG(tips) AS avg_tip
-
+    SUM(fare) AS total_fare,
+    SUM(tips) AS total_tips
 FROM ${ref("fact_taxi_trip")}
-
-GROUP BY company
+WHERE company IS NOT NULL
+GROUP BY
+    trip_date,
+    company

@@ -6,19 +6,10 @@ config {
 }
 
 SELECT
-
     trip_date,
-
     COUNT(*) AS total_trips,
-
     SUM(trip_total) AS total_revenue,
-
-    AVG(trip_total) AS avg_trip_value,
-
-    AVG(trip_seconds) AS avg_trip_seconds,
-
-    AVG(trip_miles) AS avg_trip_miles
-
+    SUM(trip_seconds) AS total_trip_seconds,
+    SUM(trip_miles) AS total_trip_miles
 FROM ${ref("fact_taxi_trip")}
-
 GROUP BY trip_date

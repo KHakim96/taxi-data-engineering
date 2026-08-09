@@ -2,21 +2,18 @@ config {
   type: "table",
   schema: "gold",
   name: "tip_earners",
-  description: "Highest Tip Earners"
+  description: "Daily tip performance by taxi for dynamic BI reporting."
 }
 
 SELECT
-
-    company,
-
+    trip_date,
+    taxi_id,
     SUM(tips) AS total_tips,
-
-    AVG(tips) AS average_tip,
-
-    COUNT(*) AS trips
-
+    SUM(trip_total) AS total_revenue,
+    SUM(fare) AS total_fare,
+    COUNT(*) AS trip_count
 FROM ${ref("fact_taxi_trip")}
-
-GROUP BY company
-
-ORDER BY total_tips DESC
+WHERE taxi_id IS NOT NULL
+GROUP BY
+    trip_date,
+    taxi_id
