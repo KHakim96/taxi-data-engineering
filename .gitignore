@@ -9,3 +9,14 @@ ml/outputs/*.png
 ml/outputs/*.json
 
 node_modules/
+
+# Dashboard prototype (planning only)
+dashboard_web.html
+
+# Node / frontend experiments
+node_modules/
+package-lock.json
+package.json
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml

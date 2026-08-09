@@ -1,0 +1,77 @@
+/*
+==========================================================
+IMPLEMENTATION EXPLANATION
+==========================================================
+1. Why this belongs in Gold: 
+   The Gold layer is intended for aggregated, business-ready datasets tailored for specific BI use cases. This model aggregates raw facts into a pre-computed geospatial format designed directly for a dashboard map.
+
+2. Why this reporting grain is optimal: 
+   Grouping by `trip_date`, `pickup_location`, and `pickup_community_area` drastically reduces row count. Since there are only 950 distinct pickup locations, pre-aggregating over 188M rows reduces the output to a highly manageable daily summary (at most 950 rows per day), allowing interactive filtering without exposing raw trip logs.
+
+3. Why this improves Looker Studio performance: 
+   Looker Studio struggles when attempting to render Google Maps with millions of individual lat/long points. By pre-aggregating in BigQuery, Looker Studio only needs to render a few hundred points per date selected. The computational heavy-lifting is shifted to BigQuery, keeping the dashboard extremely fast.
+
+4. Why it follows Medallion Architecture: 
+   It reads strictly from the cleaned, conformed Silver layer (`stg_taxi_trips`, `stg_holidays`, `stg_weather`). It does not bypass directly to Bronze. It denormalizes dimensions (weather, holidays) and aggregates metrics, transforming relational data into a pure reporting asset.
+==========================================================
+*/
+
+config {
+  type: "table",
+  schema: "gold",
+  name: "pickup_geospatial",
+  description: "Aggregated daily pickup metrics for geospatial mapping in Looker Studio."
+}
+
+WITH daily_trips AS (
+  SELECT
+    trip_date,
+    pickup_location,
+    pickup_community_area,
+    
+    -- Metrics
+    COUNT(*) AS total_trips,
+    SUM(trip_total) AS total_revenue,
+    SUM(tips) AS total_tips,
+    SUM(fare) AS total_fare,
+    SUM(trip_miles) AS total_trip_miles,
+    SUM(trip_seconds) AS total_trip_seconds
+
+  FROM ${ref("stg_taxi_trips")}
+  WHERE pickup_location IS NOT NULL
+  GROUP BY
+    trip_date,
+    pickup_location,
+    pickup_community_area
+)
+
+SELECT
+  t.trip_date,
+  t.pickup_location,
+  t.pickup_community_area,
+  
+  -- Holiday Dimensions
+  COALESCE(h.is_holiday, FALSE) AS is_holiday,
+  h.holiday_name,
+  
+  -- Date Dimensions
+  EXTRACT(DAYOFWEEK FROM t.trip_date) IN (1, 7) AS is_weekend,
+  
+  -- Weather Dimensions
+  w.weather_type,
+  COALESCE(w.is_raining, FALSE) AS is_raining,
+  COALESCE(w.is_snowing, FALSE) AS is_snowing,
+  
+  -- Metrics
+  t.total_trips,
+  t.total_revenue,
+  t.total_tips,
+  t.total_fare,
+  t.total_trip_miles,
+  t.total_trip_seconds
+
+FROM daily_trips t
+LEFT JOIN ${ref("stg_holidays")} h
+  ON t.trip_date = h.holiday_date
+LEFT JOIN ${ref("stg_weather")} w
+  ON t.trip_date = w.weather_date
