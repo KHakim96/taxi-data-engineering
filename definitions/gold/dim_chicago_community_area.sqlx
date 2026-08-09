@@ -5,28 +5,6 @@ config {
   description: "Dimensional mapping of Chicago Community Area IDs to their official names."
 }
 
-/*
-==========================================================
-IMPLEMENTATION EXPLANATION
-==========================================================
-1. Why a reusable dimension is better than CASE WHEN statements:
-   A centralized dimension table ensures a Single Source of Truth. If a community area name needs to change or a new one is added, it is updated in exactly one place. Hardcoding a 77-line CASE WHEN statement into multiple reporting tables violates DRY (Don't Repeat Yourself) principles, bloats SQL files, increases compilation time, and introduces high risk for typos across reports.
-
-2. Why this follows Kimball dimensional modelling:
-   In Kimball methodology, the data warehouse consists of Fact tables (business metrics) and Dimension tables (business entities/context). The `dim_chicago_community_area` acts as a conformed dimension, which can be reused across any fact table (trips, safety, demand, driver logs) that references a `community_area_id`. This creates a perfect star schema.
-
-3. Why this improves Looker Studio:
-   Looker Studio handles string lookup tables effortlessly via table joins or blended data. Surfacing the human-readable string ("The Loop") directly in the Gold layer removes the need to write complex Calculated Fields within the dashboard itself. This keeps the Looker Studio report fast, clean, and business-friendly right out of the box.
-
-4. Which future Gold models could reuse this dimension:
-   Any model that aggregates or filters by location can join to this dimension. This includes:
-   - fact_taxi_trip (for general trip log lookups)
-   - business_insight_2 (if it explores geospatial revenue efficiency)
-   - tip_earners (to see if top earners congregate in certain areas)
-   - forecast_dashboard (to forecast demand per community area)
-==========================================================
-*/
-
 SELECT * FROM UNNEST([
   STRUCT(1 AS community_area_id, 'Rogers Park' AS community_area_name),
   STRUCT(2, 'West Ridge'),
