@@ -29,3 +29,29 @@ SELECT
 FROM `taxi-data-engineering-504801.gold.pickup_geospatial`;
 
 only 0.33 percent.no worries
+
+3- total trip not tally
+
+Data Quality Observation
+
+During profiling, approximately 10.74% of trips had a trip_total that did not exactly equal fare + tips + tolls + extras. The discrepancy was concentrated in electronic payment methods (Credit Card, Mobile, Split, Way2ride), while Cash transactions reconciled exactly. Therefore, trip_total was treated as the authoritative revenue field throughout the Gold reporting layer.
+
+to check query:
+SELECT
+    payment_type,
+    COUNT(*) AS trip_count,
+    ROUND(
+      AVG(
+        trip_total
+        - (
+            COALESCE(fare,0)
+          + COALESCE(tips,0)
+          + COALESCE(tolls,0)
+          + COALESCE(extras,0)
+        )
+      ),
+      2
+    ) AS avg_difference
+FROM `taxi-data-engineering-504801.bronze.raw_taxi_trips`
+GROUP BY payment_type
+ORDER BY trip_count DESC;

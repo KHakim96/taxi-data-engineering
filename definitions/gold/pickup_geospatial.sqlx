@@ -46,10 +46,15 @@ WITH daily_trips AS (
 )
 
 SELECT
-  t.trip_date,
-  t.pickup_location,
-  t.pickup_community_area,
-  c.community_area_name AS pickup_community_area_name,
+t.trip_date,
+
+-- Geographic Fields for Looker Studio
+t.pickup_location,
+ST_Y(ST_GEOGFROMTEXT(t.pickup_location)) AS latitude,
+ST_X(ST_GEOGFROMTEXT(t.pickup_location)) AS longitude,
+
+t.pickup_community_area,
+c.community_area_name AS pickup_community_area_name,
   
   -- Holiday Dimensions
   COALESCE(h.is_holiday, FALSE) AS is_holiday,
