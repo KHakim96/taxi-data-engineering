@@ -59,6 +59,27 @@ SELECT
 
   COALESCE(company, 'Unknown') AS company,
 
+  COALESCE(company, 'Unknown') AS company,
+
+  CASE
+    WHEN taxi_id IS NULL THEN 'Unknown Taxi'
+
+    ELSE CONCAT(
+      COALESCE(company, 'Unknown'),
+      ' - Taxi ',
+      LPAD(
+        CAST(
+          DENSE_RANK() OVER (
+            PARTITION BY COALESCE(company, 'Unknown')
+            ORDER BY taxi_id
+          ) AS STRING
+        ),
+        4,
+        '0'
+      )
+    )
+  END AS taxi_label,
+
   pickup_census_tract,
   dropoff_census_tract,
 
