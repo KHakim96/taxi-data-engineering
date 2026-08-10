@@ -10,10 +10,11 @@ SELECT
     taxi_id,
     taxi_label,
     company,
-    
+
     SUM(tips) AS total_tips,
     SUM(trip_total) AS total_revenue,
     SUM(fare) AS total_fare,
+    SUM(trip_miles) AS total_trip_miles,
     COUNT(*) AS trip_count
 FROM ${ref("fact_taxi_trip")}
 WHERE taxi_id IS NOT NULL
