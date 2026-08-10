@@ -27,7 +27,17 @@ SELECT
   -- Temporal Dimensions
   f.trip_date,
   EXTRACT(DAYOFWEEK FROM f.trip_date) IN (1, 7) AS is_weekend,
-  EXTRACT(DAYOFWEEK FROM f.trip_date) AS day_of_week,
+  EXTRACT(DAYOFWEEK FROM f.trip_date) AS day_of_week_number,
+
+  CASE EXTRACT(DAYOFWEEK FROM f.trip_date)
+    WHEN 1 THEN 'Sunday'
+    WHEN 2 THEN 'Monday'
+    WHEN 3 THEN 'Tuesday'
+    WHEN 4 THEN 'Wednesday'
+    WHEN 5 THEN 'Thursday'
+    WHEN 6 THEN 'Friday'
+    WHEN 7 THEN 'Saturday'
+  END AS day_of_week,
 
   -- Operational & Categorical Dimensions
   COALESCE(f.company, 'Unknown') AS company,
