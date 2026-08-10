@@ -56,9 +56,7 @@ SELECT
   trip_total,
 
   payment_type,
-
-  COALESCE(company, 'Unknown') AS company,
-
+  
   COALESCE(company, 'Unknown') AS company,
 
   CASE
