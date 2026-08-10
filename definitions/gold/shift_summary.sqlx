@@ -10,6 +10,7 @@ WITH trip_starts AS (
         unique_key,
         taxi_id,
         taxi_label,
+        company,
         trip_start_timestamp,
         trip_end_timestamp,
         trip_start_datetime,

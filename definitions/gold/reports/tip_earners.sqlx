@@ -8,8 +8,9 @@ config {
 SELECT
     trip_date,
     taxi_id,
-    ANY_VALUE(taxi_label) AS taxi_label,
+    taxi_label,
     company,
+    
     SUM(tips) AS total_tips,
     SUM(trip_total) AS total_revenue,
     SUM(fare) AS total_fare,
