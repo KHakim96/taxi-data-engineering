@@ -50,6 +50,7 @@ shift_metrics AS (
     SELECT
         taxi_id,
         ANY_VALUE(taxi_label) AS taxi_label,
+        ANY_VALUE(company) AS company,
         shift_id,
         MIN(trip_start_datetime) AS shift_start_datetime,
         MAX(trip_end_datetime) AS shift_end_datetime,
@@ -63,6 +64,7 @@ shift_metrics AS (
 SELECT
     taxi_id,
     taxi_label,
+    company,
     shift_id,
     shift_start_datetime,
     shift_end_datetime,

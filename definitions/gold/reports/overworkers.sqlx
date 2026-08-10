@@ -9,6 +9,7 @@ SELECT
     DATE(shift_start_datetime) AS shift_date,
     taxi_id,
     ANY_VALUE(taxi_label) AS taxi_label,
+    ANY_VALUE(company) AS company,
     COUNT(*) AS total_shifts,
     COUNTIF(shift_classification = 'Normal') AS normal_shift_count,
     COUNTIF(shift_classification = 'Overworker') AS overworker_shift_count,
