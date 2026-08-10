@@ -11,6 +11,8 @@ SELECT
 
   taxi_id,
 
+  taxi_label,
+
   trip_date,
 
   trip_seconds,
