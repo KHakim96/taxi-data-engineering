@@ -1,0 +1,448 @@
+{
+  "metadata": {
+    "project": "Chicago Taxi Shift Research — evidence base for shift_summary.sqlx business rule",
+    "dataset_context": "Chicago Taxi Trips 2013-2023 (data.cityofchicago.org, wrvz-psew)",
+    "compiled_utc": "2026-08-15",
+    "method": "Two independent web-research lanes (official/regulatory + industry/academic/historical), cross-checked and deduplicated. Raw re-crawl possible via chicago_taxi_shift_research.py.",
+    "distinctions": {
+      "A": "legal operating hours",
+      "B": "driver labor/work shift",
+      "C": "vehicle operational shift",
+      "D": "dispatch/staff schedule",
+      "E": "data-analytic shift definition"
+    },
+    "negative_findings": [
+      "No definition of 'shift' in MCC 9-112-010; 'shift' appears in code only as '12 hour shift' / '24 hour shift' lease units.",
+      "No Chicago source (law, BACP rules, news, academic) documents a specific day/night changeover clock time for Chicago. NYC 4-5pm/5am windows are comparative only.",
+      "Dataset has no driver identifier; taxi_id is a medallion-level vehicle identifier (Data Portal metadata).",
+      "No Illinois state statute sets Chicago taxi shift hours (home-rule city; BACP/MCC Title 9 governs)."
+    ]
+  },
+  "sources": [
+    {
+      "id": 1,
+      "lane": "official+industry",
+      "category": "code",
+      "authority": "regulatory",
+      "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2648494",
+      "title": "Municipal Code of Chicago 9-112-230 — Tiered lease rate structure",
+      "date": "enacted 2012-01-18; amended 2012-06-06, 2014-12-10, 2024-12-16",
+      "passages": [
+        "\"$74 per 12 hour shift\" ... \"$518 total for seven consecutive 12 hour shifts\" ... \"$101 per 24 hour shift\" ... \"$707 total for seven consecutive 24 hour shifts\" (Tier 1)",
+        "\"(d) No person shall charge more than the 24-hour lease rate by entering into two consecutive 12-hour daily leases with the same driver.\""
+      ],
+      "proves": "City economic regulation uses the 12-hour shift / 24-hour shift as the lease unit (B/C/E).",
+      "does_not_prove": "Any fixed clock-time start/end for shifts."
+    },
+    {
+      "id": 2,
+      "lane": "official+industry",
+      "category": "code",
+      "authority": "regulatory",
+      "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2648800",
+      "title": "Municipal Code of Chicago 9-112-250 — Restriction on consecutive hours of operation",
+      "date": "added Coun. J. 1-18-12; amended 6-6-12; in force ~Jul 2012",
+      "passages": [
+        "\"no chauffeur operates a taxicab for more than 12 consecutive hours within a 24 hour period\"",
+        "\"chauffeurs rest or refrain from operating a taxicab for a period of 8 consecutive hours prior to the start of a 12 hour lease\"",
+        "\"If a licensee enters into a 24 hour lease ... that chauffeur is resting or refraining from operating a taxicab after a 12 hour consecutive shift for a minimum of 8 consecutive hours\""
+      ],
+      "proves": "Statutory 12h max continuous operation + 8h rest, effective before dataset start (covers 2013-2023). A '24-hour lease' is NOT 24h of driving.",
+      "does_not_prove": "Any schedule of shift start times."
+    },
+    {
+      "id": 3,
+      "lane": "official",
+      "category": "code",
+      "authority": "regulatory",
+      "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2648318",
+      "title": "Municipal Code of Chicago 9-112-010 — Definitions",
+      "date": "current through 2024-12-16",
+      "passages": [
+        "Defines Chauffeur, Licensee, Taxicab, Owner-Operator etc.; no definition of 'shift' appears."
+      ],
+      "proves": "Negative finding: 'shift' is not a defined legal term in the taxi chapter.",
+      "does_not_prove": "n/a (negative finding)"
+    },
+    {
+      "id": 4,
+      "lane": "official",
+      "category": "city",
+      "authority": "regulatory",
+      "url": "https://www.chicago.gov/dam/city/depts/bacp/publicvehicleinfo/taxiindustrynotices/rulesandregulationsfortaxicabmedallionholders.pdf",
+      "title": "BACP Rules and Regulations for Taxicab Medallion License Holders",
+      "date": "effective 2006-04-17; amended 2006, 2007",
+      "passages": [
+        "\"'12-hour lease' means a taxicab lease for a duration of 12 hours. '24-hour lease' means a taxicab lease for a duration of 24 hours. Two consecutive 12-hour leases shall be considered a 24-hour lease...\"",
+        "Rule 8.06 Maximum rates: 12-Hour Lease $57.00; 24-Hour Lease $78.50"
+      ],
+      "proves": "12h/24h lease-shift structure predates the 2012 reform — continuity into the 2013 dataset start.",
+      "does_not_prove": "Clock-time boundaries."
+    },
+    {
+      "id": 5,
+      "lane": "official",
+      "category": "city",
+      "authority": "regulatory",
+      "url": "https://www.chicago.gov/content/dam/city/depts/bacp/Rules/amendtxmedlicholderrulrgsfinalsig9232015.pdf",
+      "title": "BACP Taxicab Medallion License Holder Rules (2015)",
+      "date": "2015-09-23",
+      "passages": [
+        "\"servicing passengers using wheelchairs at least two times for every twelve hour shift worked\""
+      ],
+      "proves": "BACP rule language continues to use 'twelve hour shift' as the standard work unit (B/E), mid-window.",
+      "does_not_prove": "Clock-time boundaries."
+    },
+    {
+      "id": 6,
+      "lane": "official",
+      "category": "city",
+      "authority": "official",
+      "url": "https://www.chicago.gov/dam/city/depts/bacp/publicvehicleinfo/taxiindustrynotices/taxiindustrynotice12-004newtaxipublicvehicleord.pdf",
+      "title": "BACP Taxi Industry Notice 12-004 — New Taxicab and Public Vehicle Ordinances",
+      "date": "2011-12-14",
+      "passages": [
+        "\"A limitation to no more than 12 consecutive hours of driving each day for drivers, in line with federal motor vehicle safety laws and industry standards (a twenty-four hour lease option still exists).\"",
+        "\"'Weekly Lease' is the corresponding 12-hour or 24-hour shift rate multiplied by 7 days.\""
+      ],
+      "proves": "City frames the 12h cap as a driver-hours safety limit aligned with federal hours-of-service concepts (B).",
+      "does_not_prove": "A fixed schedule. (HTTP 403 on direct fetch; text captured via search index of the PDF.)"
+    },
+    {
+      "id": 7,
+      "lane": "official",
+      "category": "portal",
+      "authority": "data-provider",
+      "url": "https://data.cityofchicago.org/Transportation/Taxi-Trips-2013-2023-/wrvz-psew (metadata via https://data.cityofchicago.org/api/views/wrvz-psew.json)",
+      "title": "Chicago Data Portal — Taxi Trips (2013-2023) dataset metadata",
+      "date": "updated through 2024",
+      "passages": [
+        "\"Taxi trips from 2013 to 2023 reported to the City of Chicago in its role as a regulatory agency. To protect privacy but allow for aggregate analyses, the Taxi ID is consistent for any given taxi medallion number but does not show the number...\"",
+        "\"times are rounded to the nearest 15 minutes\"",
+        "Column taxi_id: \"A unique identifier for the taxi.\" (~9,806 distinct taxi_ids, ~211.6M rows)"
+      ],
+      "proves": "taxi_id is a medallion/vehicle identifier (C), NOT a driver; timestamps are 15-min rounded.",
+      "does_not_prove": "Any driver- or shift-level semantics."
+    },
+    {
+      "id": 8,
+      "lane": "official+industry",
+      "category": "city",
+      "authority": "regulatory",
+      "url": "https://www.chicago.gov/city/en/depts/bacp/provdrs/vehic/svcs/publicchauffeur.html (lease template mirror: https://abcdocz.com/doc/39116/city-of-chicago-uniform-taxicab-lease-agreement--)",
+      "title": "City of Chicago Uniform Taxicab Lease Agreement (eff. 2020-01-01) + BACP Rule TX9.02",
+      "date": "2020-01-01 (12/24h structure continuous since 2012)",
+      "passages": [
+        "Lease types: \"12 Hour Daily Lease / 24 Hour Daily Lease / 12 Hour Weekly Lease / 24 Hour Weekly Lease\"",
+        "\"Daily Shift: ______ Start Time (HH:MM) ... End Time (HH:MM)\" (blank field on the official form)",
+        "\"RULE TX9.02 - 12 hour weekly leases must be for the identical shift time for all 7 consecutive days.\""
+      ],
+      "proves": "Shift start/end clock times are contractually negotiated per lease; the City mandates duration and consistency, not a citywide schedule. Strongest evidence that no mandated changeover time exists.",
+      "does_not_prove": "What times operators actually choose (not centrally documented)."
+    },
+    {
+      "id": 9,
+      "lane": "official",
+      "category": "city",
+      "authority": "regulatory",
+      "url": "https://www.chicago.gov/content/dam/city/depts/dol/rulesandregs/BACP-Public-Chauffeur-Rules-3-1-25-Signed.pdf",
+      "title": "BACP Public Chauffeur Rules (2016 and 2025 editions)",
+      "date": "2016-09-12 / 2025-03-01",
+      "passages": [
+        "Chauffeur licensing/training requirements; no hours-of-service or shift-schedule rule appears."
+      ],
+      "proves": "Negative finding: chauffeur licensing rules contain no shift mandate; driver hours governed only by MCC 9-112-250.",
+      "does_not_prove": "n/a (negative finding)"
+    },
+    {
+      "id": 10,
+      "lane": "official",
+      "category": "state",
+      "authority": "official",
+      "url": "https://www.icc.illinois.gov (jurisdictional check)",
+      "title": "Illinois Commerce Commission jurisdiction — negative finding",
+      "date": "current",
+      "passages": [
+        "ICC regulates livery/limousine for-hire carriers under the Illinois Vehicle Code, not Chicago taxicabs (home-rule city; taxi authority delegated to Chicago BACP)."
+      ],
+      "proves": "No state-level shift rule exists for Chicago taxis; municipal code is the governing authority.",
+      "does_not_prove": "n/a (negative finding)"
+    },
+    {
+      "id": 11,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "comparative": "NYC",
+      "url": "https://economics.mit.edu/sites/default/files/inline-files/Frictions%20in%20a%20Competitive%2C%20Regulated%20Market%20Evidence%20From%20Taxis_0.pdf",
+      "title": "Frechette, Lizzeri & Salz — Frictions in a Competitive, Regulated Market: Evidence From Taxis (AER 2019)",
+      "date": "2019 (data 2009-2013)",
+      "passages": [
+        "\"most day shifts start around 5AM and most night shifts around 5PM\"",
+        "\"most day shifts ending at 4PM\"",
+        "\"the shift changes occur from 5AM to 7AM and 3PM to 5PM\""
+      ],
+      "proves": "NYC benchmark: 5AM/5PM lease boundaries with measured 4-5pm and 5-7am transition periods (B/C/E).",
+      "does_not_prove": "Anything about Chicago specifically."
+    },
+    {
+      "id": 12,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "comparative": "NYC",
+      "url": "https://www.nber.org/system/files/working_papers/w20604/w20604.pdf",
+      "title": "Farber — Why You Can't Find a Taxi in the Rain (QJE 2015 / NBER w20604)",
+      "date": "2015 (data 2009-2013)",
+      "passages": [
+        "\"a driver leases a cab for a fixed period, usually a 12-hour shift\"",
+        "\"Daily leases typically run for twelve hours, with two such shifts per day. The 'day shift' runs from very early morning to mid- to late afternoon...\"",
+        "\"shifts that start between 4AM and 9:59AM as day shifts (44.5 percent)... between 2PM and 7:59PM as night shifts (42.4 percent)\""
+      ],
+      "proves": "12h two-shift structure plus a defensible empirical day/night start-hour segmentation for trip data (E).",
+      "does_not_prove": "Chicago applicability."
+    },
+    {
+      "id": 13,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "comparative": "NYC",
+      "url": "https://www.carloalberto.org/wp-content/uploads/2019/02/breaks_JMP_schmidt.pdf",
+      "title": "Schmidt — Valuing Flexibility: A Model of Discretionary Rest Breaks (JMP)",
+      "date": "2019",
+      "passages": [
+        "\"rent for either the day shift (5 AM to 5 PM) or the night shift (5 PM to 5 AM)\"",
+        "\"almost all rental agreements between taxi fleets and drivers start or end at 5 AM or 5 PM\""
+      ],
+      "proves": "The single most explicit 05:00-17:00 / 17:00-05:00 statement found — NYC only.",
+      "does_not_prove": "Chicago applicability."
+    },
+    {
+      "id": 14,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "comparative": "NYC",
+      "url": "https://nbuchholz.scholar.princeton.edu/sites/g/files/toruqf4066/files/documents/BSX_TaxiLabor.pdf",
+      "title": "Buchholz, Shum & Xu — Rethinking Reference Dependence (taxi labor supply)",
+      "date": "data 2012-2013",
+      "passages": [
+        "\"day-shift drivers are required to return cars to bases... by 4-5pm for the evening shift, and night-shift drivers are required to return the car by 4-5am\""
+      ],
+      "proves": "NYC measured handoff windows 4-5pm / 4-5am (C).",
+      "does_not_prove": "Chicago applicability."
+    },
+    {
+      "id": 15,
+      "lane": "industry",
+      "category": "news",
+      "authority": "tertiary",
+      "comparative": "NYC",
+      "url": "https://www.nytimes.com/2011/01/12/nyregion/12taxi.html",
+      "title": "NYT — Where Do All the Cabs Go in the Late Afternoon?",
+      "date": "2011-01-12",
+      "passages": [
+        "\"From 4 to 5 p.m., the traditional hour for cabs to change shifts, the number of active taxicabs on the streets falls by nearly 20 percent\"",
+        "\"Many taxicabs are used by two drivers a day, each working a 12-hour shift... owners schedule the shift change in the middle of the afternoon, so each shift gets a rush hour.\""
+      ],
+      "proves": "Documented 'witching hour' phenomenon and the rationale for mid-afternoon changeover (B/C).",
+      "does_not_prove": "Chicago applicability."
+    },
+    {
+      "id": 16,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "url": "https://www.taxi-library.org/chicago-2009-taxi-income-summary.pdf",
+      "title": "Bruno, Schneidman & Hewitt — Driven Into Poverty: Chicago taxicab industry study (UIC Labor Education Program)",
+      "date": "2009 (survey of 711 drivers)",
+      "passages": [
+        "\"The average shift is more than 13 hours. Chicago taxicab drivers as a group averaged 13.05 hours per shift\"",
+        "\"74.54 percent working 12 hours or more per shift\"",
+        "\"Taxicab drivers work 25 shifts per month\""
+      ],
+      "proves": "Chicago driver shift durations cluster at/above 12h, consistent with the 12h lease economy (B). Pre-dataset era (2008 survey) but structurally continuous.",
+      "does_not_prove": "Changeover times."
+    },
+    {
+      "id": 17,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "url": "https://www.chicago.gov/city/en/depts/bacp/provdrs/vehic/news/2014/aug/city-of-chicago-announces-study-that-finds-average-taxi-driver-e.html",
+      "title": "NelsonNygaard for City of Chicago — Taxi Fare Rate Study (announcement)",
+      "date": "2014-08 (data Jan-Aug 2013)",
+      "passages": [
+        "\"eight months of trip-by-trip records for more than 10.6 million taxi trips conducted from January 1, 2013 thru August 31, 2013 provided by 3,900 taxis\"",
+        "\"'Extended-time drivers,' the 40 percent of drivers who work 11 or more hours a day, earn $12.50 an hour\"",
+        "\"20 percent... 'part-time drivers' that work 7 hours or less per day\""
+      ],
+      "proves": "City-commissioned study on 2013 Chicago trip data confirms large 11+h driver cohorts inside the project window (B/E).",
+      "does_not_prove": "Changeover times."
+    },
+    {
+      "id": 18,
+      "lane": "industry",
+      "category": "news",
+      "authority": "tertiary",
+      "url": "https://www.cbsnews.com/chicago/news/some-chicago-cabbies-on-strike-as-new-rules-take-effect/",
+      "title": "CBS Chicago — Some Chicago Cabbies On Strike As New Rules Take Effect",
+      "date": "2012-07-02",
+      "passages": [
+        "\"new regulations also restrict cabbies to working no more than 12 hours a day, excluding breaks\"",
+        "\"most drivers need to work 8 hours a day, just to break even\""
+      ],
+      "proves": "Contemporaneous confirmation the 12h cap took effect 2012 (A/B). '8 hours' is break-even economics, NOT a shift structure.",
+      "does_not_prove": "Any 8-hour shift schedule."
+    },
+    {
+      "id": 19,
+      "lane": "industry",
+      "category": "news",
+      "authority": "tertiary",
+      "url": "https://bancodeprofissionais.com/1990/09/20/2-cab-companies-to-boost-drivers-leases/",
+      "title": "Chicago Tribune (mirror) — 2 Cab Companies to Boost Drivers' Leases",
+      "date": "1990-09-20",
+      "passages": [
+        "\"cabdrivers rent taxicabs from the companies for 12-hour, 24-hour or weekly periods, paying a set fee.\"",
+        "\"A driver of a Yellow cab who rents a cab from the company during the day will see his rate go to $63.59\""
+      ],
+      "proves": "12h/24h lease structure and day/night rate differentiation existed in Chicago by 1990 (B/C).",
+      "does_not_prove": "Changeover times."
+    },
+    {
+      "id": 20,
+      "lane": "industry",
+      "category": "legal-record",
+      "authority": "secondary",
+      "url": "https://exa.ai/library/legal/opinion/7gyvndpm10g9m7bh2n6p1nl6",
+      "title": "Checker Taxi Co. v. National Production Workers Union (N.D. Ill. 1986)",
+      "date": "1986 (practices 1975-1986)",
+      "passages": [
+        "\"Leases are given on a day, night or twenty-four hour basis\""
+      ],
+      "proves": "Chicago day/night/24h lease triad predates Uber by decades (B/C).",
+      "does_not_prove": "Changeover times."
+    },
+    {
+      "id": 21,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "url": "http://isapapers.pitt.edu/179",
+      "title": "Luedke — Driving Lives: An Ethnography of Chicago Taxi Drivers",
+      "date": "2010 (fieldwork ~2008-2010)",
+      "passages": [
+        "\"claiming the cab for a certain amount of time (12 hours, 24 hours, a week)\"",
+        "\"seven-days-a-week, twelve-hours-a-day labor\""
+      ],
+      "proves": "Qualitative Chicago confirmation of the 12h lease as the dominant work unit (B).",
+      "does_not_prove": "Changeover times."
+    },
+    {
+      "id": 22,
+      "lane": "industry",
+      "category": "industry",
+      "authority": "secondary",
+      "comparative": "NYC",
+      "url": "https://www.schallerconsult.com/taxi/safercabs.pdf",
+      "title": "Schaller Consulting — Higher Pay, Safer Cabbies",
+      "date": "~1998",
+      "passages": [
+        "\"returning to a central garage to pick up and drop off the vehicle at the start and end of each 12-hour shift\""
+      ],
+      "proves": "Industry-standard 12h garage-shift lease model (B/C), NYC.",
+      "does_not_prove": "Chicago applicability."
+    },
+    {
+      "id": 23,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "comparative": "method",
+      "url": "https://www.mdpi.com/2220-9964/9/4/281",
+      "title": "MDPI ISPRS IJGI — Spatiotemporal Analysis of Taxi-Driver Shifts Using Big Trace Data (Wuhan)",
+      "date": "2020 (data 2013)",
+      "passages": [
+        "\"The occurrence time of taxi-driver shifts in Wuhan mainly has two high peak periods: 1:00 a.m. to 4:00 a.m. and 4:00 p.m. to 5:00 p.m.\""
+      ],
+      "proves": "Data-driven shift-change detection from trip/trace data is established methodology; changeover peaks cluster in early morning + late afternoon (E).",
+      "does_not_prove": "Chicago timing."
+    },
+    {
+      "id": 24,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "comparative": "method",
+      "url": "https://www.joca.cn/EN/10.11772/j.issn.1001-9081.2020122004",
+      "title": "J. Computer Applications (Fuzhou) — Time-space distribution identification of taxi shift",
+      "date": "2021 (data 2018)",
+      "passages": [
+        "\"the identified taxi shift time is mainly from 4:00 to 6:00 in the morning and from 16:00 to 18:00 in the evening\""
+      ],
+      "proves": "Corroborates ~4-6am / ~16-18pm changeover clustering via independent method (E).",
+      "does_not_prove": "Chicago timing."
+    },
+    {
+      "id": 25,
+      "lane": "industry",
+      "category": "academic",
+      "authority": "secondary",
+      "comparative": "NYC",
+      "url": "https://www.cmu.edu/dietrich/sds/docs/loewenstein/NYCCabdrivers.pdf",
+      "title": "Camerer, Babcock, Loewenstein & Thaler — Labor Supply of New York City Cabdrivers (QJE 1997)",
+      "date": "1997 (data 1988-1994)",
+      "passages": [
+        "\"they rent these cabs for twelve-hour shifts to drivers who... typically paid $76 for a day shift and $86 for a night shift\""
+      ],
+      "proves": "Foundational 12h + day/night rate differential documentation (B), NYC.",
+      "does_not_prove": "Chicago applicability."
+    },
+    {
+      "id": 26,
+      "lane": "industry",
+      "category": "city",
+      "authority": "official",
+      "url": "https://www.chicago.gov/content/dam/city/depts/bacp/publicvehicleinfo/medallionowners/2018-TaxicabIndustryReformFlyer.pdf",
+      "title": "City of Chicago — New Laws That Will Provide Financial Relief to the Taxicab Industry",
+      "date": "2018",
+      "passages": [
+        "\"An independent taxicab may be leased to a City of Chicago licensed taxicab driver...\""
+      ],
+      "proves": "Post-Uber regulatory easing context (C); no shift-structure change.",
+      "does_not_prove": "Any shift schedule."
+    },
+    {
+      "id": 27,
+      "lane": "industry",
+      "category": "news",
+      "authority": "tertiary",
+      "url": "https://www.wbez.org/2014/08/29/study-chicago-cabbies-earn-average-of-12-hour",
+      "title": "WBEZ — Study: Chicago cabbies earn average of $12/hour",
+      "date": "2014-08-29",
+      "passages": [
+        "\"full-time drivers who hustle 51 hours each week net an average $111 per day\"",
+        "\"Extended-time drivers who work 75 hours each week netted $120 a day\""
+      ],
+      "proves": "Secondary coverage of the 2014 city study; long weekly hours imply 10-12h+ days (B).",
+      "does_not_prove": "Shift boundaries."
+    },
+    {
+      "id": 28,
+      "lane": "industry",
+      "category": "forum",
+      "authority": "anecdotal",
+      "comparative": "NYC",
+      "url": "https://automarketplace.substack.com/p/the-real-economics-of-an-nyc-taxi",
+      "title": "AutoMarketplace — The Real Economics of an NYC Taxi Medallion",
+      "date": "2025-12 (describing ~2017-2025)",
+      "passages": [
+        "\"why he and his father abandoned traditional day-night shift splits due to lost trips during driver handoffs\""
+      ],
+      "proves": "Supplementary only: some operators abandoned two-shift splits in the late TNC era — caveat for late-window (2019-2023) rows.",
+      "does_not_prove": "Chicago practice; not authoritative."
+    }
+  ]
+}

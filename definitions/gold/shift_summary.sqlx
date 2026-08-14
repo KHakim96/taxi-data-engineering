@@ -1,80 +1,17 @@
-config {
-  type: "table",
-  schema: "gold",
-  name: "shift_summary",
-  description: "Reconstructs driver shifts by grouping trips separated by less than 8 hours. The Chicago Taxi Trips dataset does not contain a unique driver identifier, so taxi_id is used as a proxy. Shifts exceeding 24 hours are classified as Shared Vehicle Fleet to separate human overworkers from multi-driver vehicles."
-}
-
-WITH trip_starts AS (
-    SELECT
-        unique_key,
-        taxi_id,
-        taxi_label,
-        company,
-        trip_start_timestamp,
-        trip_end_timestamp,
-        trip_start_datetime,
-        trip_end_datetime,
-        trip_total,
-        -- Calculate gap from previous trip's end to current trip's start
-        DATETIME_DIFF(
-            trip_start_datetime,
-            LAG(trip_end_datetime) OVER (
-                PARTITION BY taxi_id 
-                ORDER BY trip_start_datetime, trip_end_datetime, unique_key
-            ),
-            MINUTE
-        ) AS gap_minutes
-    FROM ${ref("stg_taxi_trips")}
-    WHERE taxi_id IS NOT NULL
-),
-
-session_flags AS (
-    SELECT
-        *,
-        -- Flag as 1 if it's the first trip OR the gap is >= 8 hours (480 mins)
-        IF(gap_minutes IS NULL OR gap_minutes >= 480, 1, 0) AS is_new_shift
-    FROM trip_starts
-),
-
-shift_ids AS (
-    SELECT
-        *,
-        SUM(is_new_shift) OVER (
-            PARTITION BY taxi_id 
-            ORDER BY trip_start_datetime, trip_end_datetime, unique_key
-        ) AS shift_id
-    FROM session_flags
-),
-
-shift_metrics AS (
-    SELECT
-        taxi_id,
-        ANY_VALUE(taxi_label) AS taxi_label,
-        ANY_VALUE(company) AS company,
-        shift_id,
-        MIN(trip_start_datetime) AS shift_start_datetime,
-        MAX(trip_end_datetime) AS shift_end_datetime,
-        ROUND(TIMESTAMP_DIFF(MAX(trip_end_timestamp), MIN(trip_start_timestamp), SECOND) / 3600.0, 2) AS shift_duration_hours,
-        COUNT(*) AS trips_in_shift,
-        SUM(trip_total) AS shift_revenue
-    FROM shift_ids
-    GROUP BY taxi_id, shift_id
-)
-
-SELECT
-    taxi_id,
-    taxi_label,
-    company,
-    shift_id,
-    shift_start_datetime,
-    shift_end_datetime,
-    shift_duration_hours,
-    trips_in_shift,
-    shift_revenue,
-    CASE
-        WHEN shift_duration_hours < 12 THEN 'Normal'
-        WHEN shift_duration_hours <= 24 THEN 'Overworker'
-        ELSE 'Shared Vehicle Fleet'
-    END AS shift_classification
-FROM shift_metrics
+Taxi ID
+   ↓
+Sort trips chronologically
+   ↓
+Check gap between trips
+   ↓
+Gap ≥ 8 hours?
+   ├── YES → NEW operational block
+   └── NO  → SAME operational block
+   ↓
+For each block:
+   ├── elapsed block duration
+   └── SUM(trip_seconds) = active trip hours
+   ↓
+active_trip_hours > 12
+   ↓
+Potential Overworker

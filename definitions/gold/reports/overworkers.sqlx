@@ -2,30 +2,41 @@ config {
   type: "table",
   schema: "gold",
   name: "overworkers",
-  description: "Aggregates taxi shift data to identify potential overworkers. Since the dataset does not have driver identifiers, we use taxi_id. Shifts are categorized into Normal, Overworker, and Shared Vehicle Fleet based on their duration to isolate single-driver behavior from 24/7 fleet operations."
+  description: "Aggregates vehicle operational blocks to identify potential overwork. The dataset does not contain driver identifiers, so taxi_id is used as a vehicle-level proxy. Potential overwork is identified when a vehicle operational block exceeds 12 active trip hours."
 }
 
 SELECT
-    DATE(shift_start_datetime) AS shift_date,
-    taxi_id,
+  DATE(shift_start_datetime) AS shift_date,
 
-    ANY_VALUE(taxi_label) AS taxi_label,
-    ANY_VALUE(company) AS company,
-    
-    COUNT(*) AS total_shifts,
-    
-    COUNTIF(shift_classification = 'Normal') AS normal_shift_count,
-    COUNTIF(shift_classification = 'Overworker') AS overworker_shift_count,
-    
-    COUNTIF(shift_classification = 'Shared Vehicle Fleet') AS shared_vehicle_shift_count,
-    
-    SUM(shift_duration_hours) AS total_shift_hours,
-    MAX(shift_duration_hours) AS longest_shift_hours,
-    
-    SUM(trips_in_shift) AS total_trips,
-    SUM(shift_revenue) AS total_revenue
+  taxi_id,
+
+  ANY_VALUE(taxi_label) AS taxi_label,
+  ANY_VALUE(company) AS company,
+
+  COUNT(*) AS total_operational_blocks,
+
+  COUNTIF(
+    shift_classification = 'Within 12-Hour Limit'
+  ) AS within_12_hour_block_count,
+
+  COUNTIF(
+    shift_classification = 'Potential Overworker'
+  ) AS potential_overworker_block_count,
+
+  SUM(active_trip_hours) AS total_active_trip_hours,
+
+  MAX(active_trip_hours) AS longest_active_trip_hours,
+
+  SUM(shift_duration_hours) AS total_elapsed_block_hours,
+
+  MAX(shift_duration_hours) AS longest_elapsed_block_hours,
+
+  SUM(trips_in_shift) AS total_trips,
+
+  SUM(shift_revenue) AS total_revenue
 
 FROM ${ref("shift_summary")}
-GROUP BY 
-    shift_date,
-    taxi_id
+
+GROUP BY
+  shift_date,
+  taxi_id
