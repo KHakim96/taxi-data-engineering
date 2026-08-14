@@ -78,6 +78,51 @@ SELECT
     )
   END AS taxi_label,
 
+  /*
+    Fare anomaly detection derived from Bronze profiling.
+
+    These rules identify combinations that were strongly abnormal
+    in the source data:
+
+    1. Missing fare
+    2. Very high fare + very short trip
+    3. Extremely high fare + short distance
+
+    Records are flagged, not deleted, so source lineage is preserved.
+  */
+
+  CASE
+    WHEN fare IS NULL THEN TRUE
+
+    WHEN fare >= 1000
+      AND trip_miles < 1
+      AND trip_seconds < 1800
+      THEN TRUE
+
+    WHEN fare >= 5000
+      AND trip_miles < 5
+      THEN TRUE
+
+    ELSE FALSE
+  END AS fare_anomaly_flag,
+
+  CASE
+    WHEN fare IS NULL
+      THEN 'MISSING_FARE'
+
+    WHEN fare >= 1000
+      AND trip_miles < 1
+      AND trip_seconds < 1800
+      THEN 'HIGH_FARE_SHORT_TRIP'
+
+    WHEN fare >= 5000
+      AND trip_miles < 5
+      THEN 'EXTREME_FARE_SHORT_DISTANCE'
+
+    ELSE NULL
+  END AS fare_anomaly_reason,
+  
+
   pickup_census_tract,
   dropoff_census_tract,
 

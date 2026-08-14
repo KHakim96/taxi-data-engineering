@@ -55,3 +55,24 @@ SELECT
 FROM `taxi-data-engineering-504801.bronze.raw_taxi_trips`
 GROUP BY payment_type
 ORDER BY trip_count DESC;
+
+4- mile 0 but has revenue
+
+The Chicago Taxi Trips dataset contains records where:
+
+trip_miles = 0
+trip_total > 0
+
+These trips are valid records but do not represent actual driving distance. They may occur because of:
+
+Minimum fare or dispatch charges
+Canceled or incomplete trips
+Data quality issues
+Very short trips recorded as zero miles
+
+so use filter in looker total_trip_miles > 0
+
+
+4-driver shift issue
+
+"Due to the absence of driver identifiers, taxi_id was used as a proxy. Long continuous operating periods likely represent shared vehicle usage rather than individual driver shifts."

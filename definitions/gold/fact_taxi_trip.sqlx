@@ -38,3 +38,8 @@ SELECT
   dropoff_community_area
 
 FROM ${ref("stg_taxi_trips")}
+
+WHERE fare_anomaly_flag = FALSE
+
+-- Keep only non-anomalous trips for trusted Gold analytics.
+-- Anomalies are flagged and retained in Silver for traceability.

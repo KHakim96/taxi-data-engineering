@@ -8,16 +8,23 @@ config {
 SELECT
     DATE(shift_start_datetime) AS shift_date,
     taxi_id,
+
     ANY_VALUE(taxi_label) AS taxi_label,
     ANY_VALUE(company) AS company,
+    
     COUNT(*) AS total_shifts,
+    
     COUNTIF(shift_classification = 'Normal') AS normal_shift_count,
     COUNTIF(shift_classification = 'Overworker') AS overworker_shift_count,
+    
     COUNTIF(shift_classification = 'Shared Vehicle Fleet') AS shared_vehicle_shift_count,
+    
     SUM(shift_duration_hours) AS total_shift_hours,
     MAX(shift_duration_hours) AS longest_shift_hours,
+    
     SUM(trips_in_shift) AS total_trips,
     SUM(shift_revenue) AS total_revenue
+
 FROM ${ref("shift_summary")}
 GROUP BY 
     shift_date,
