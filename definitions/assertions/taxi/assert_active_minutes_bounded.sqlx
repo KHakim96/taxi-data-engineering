@@ -1,0 +1,33 @@
+config {
+  type: "assertion"
+}
+
+-- Vehicle-Day Utilization invariants (forensic review 2026-08-15):
+-- 1. active_minutes within [0, 1440] (a day has at most 1440 minutes).
+-- 2. active time never exceeds elapsed span first→last activity.
+-- 3. Grain is exactly one row per taxi_id × activity_date.
+-- 4. capacity_classification is never NULL.
+
+SELECT *
+FROM ${ref("vehicle_activity_day")}
+WHERE active_minutes < 0
+   OR active_minutes > 1440
+   OR active_minutes > elapsed_first_to_last_minutes
+   OR capacity_classification IS NULL
+   OR taxi_id IS NULL
+   OR activity_date IS NULL
+
+UNION ALL
+
+-- Grain violations: any taxi_id × activity_date appearing more than once.
+SELECT
+  * EXCEPT (row_count)
+FROM (
+    SELECT
+      *,
+      COUNT(*) OVER (
+        PARTITION BY taxi_id, activity_date
+      ) AS row_count
+    FROM ${ref("vehicle_activity_day")}
+  )
+WHERE row_count > 1

@@ -73,6 +73,6 @@ Very short trips recorded as zero miles
 so use filter in looker total_trip_miles > 0
 
 
-4-driver shift issue
+4-vehicle utilization issue (was: driver shift issue)
 
-"Due to the absence of driver identifiers, taxi_id was used as a proxy. Long continuous operating periods likely represent shared vehicle usage rather than individual driver shifts."
+"Due to the absence of driver identifiers, taxi_id is a medallion-level vehicle identifier. The metric is Vehicle-Day Utilization (gold.vehicle_activity_day): union of non-overlapping trip intervals per taxi per Chicago-local day, with >12 active hours classified as 'Exceeds single-driver legal capacity (multi-driver and/or overwork — indeterminate)'. A >12h vehicle-day is indistinguishable between one overworking driver and two leased shifts sharing the medallion. The old shift_summary session/overworker logic is deprecated and disabled. Full definition: docs/business_rules.md"

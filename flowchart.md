@@ -23,7 +23,7 @@ graph LR
     end
 
     subgraph DQ["✅ DATA QUALITY CHECKPOINT\nDataform assertions"]
-        asrt_taxi[" 6 taxi assertions\ndup/null unique_key\npositive miles, seconds, total\nvalid timestamps "]
+        asrt_taxi[" 7 taxi assertions\ndup/null unique_key\npositive miles, seconds, total\nvalid timestamps\nbounded vehicle-day activity "]
         asrt_weather[" 5 weather assertions\ndup/null weather_date\nnon-negative precip, snow\nvalid temperature "]
         asrt_holiday[" 2 holiday assertions\ndup/null holiday_date "]
     end
@@ -39,9 +39,9 @@ graph LR
             fact_trip[" fact_taxi_trip\nper trip "]
             fact_daily[" fact_daily_demand\nper day "]
         end
-        subgraph GS["Shift Chain"]
-            shift[" shift_summary\nper shift "]
-            over[" overworkers\nper taxi/day "]
+        subgraph GV["Vehicle Utilization Chain"]
+            vad[" vehicle_activity_day\nper taxi × day\nsweep-line union "]
+            over[" overworkers\nper taxi/day\n(Looker compat name) "]
         end
         subgraph GR["Reports"]
             exec["executive_dashboard"]
@@ -88,8 +88,8 @@ graph LR
     fact_trip -->|Dataform SQL| fact_daily
     dim_weather -->|JOIN| fact_daily
     dim_holiday -->|JOIN| fact_daily
-    stg_taxi -->|Dataform SQL\nsessionize 8h gap| shift
-    shift -->|Dataform SQL| over
+    stg_taxi -->|Dataform SQL\ninterval union per taxi-day| vad
+    vad -->|Dataform SQL| over
     stg_taxi -->|Dataform SQL| geo
     stg_holidays -->|JOIN| geo
     stg_weather -->|JOIN| geo
@@ -137,7 +137,7 @@ graph LR
     class asrt_taxi,asrt_weather,asrt_holiday asrt
     class dim_date,dim_weather,dim_holiday,dim_area goldDim
     class fact_trip,fact_daily goldFact
-    class shift,over goldShift
+    class vad,over goldShift
     class exec,hw,bi1,bi2,geo,fc_feat,fc_dash,tips goldRpt
     class train,predict,upload,preds ml
     class looker bi

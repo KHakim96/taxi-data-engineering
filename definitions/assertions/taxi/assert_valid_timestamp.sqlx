@@ -2,14 +2,26 @@ config {
   type: "assertion"
 }
 
+-- Structural timestamp validity must hold for ALL Silver rows
+-- (nulls, end < start, null trip_seconds).
+--
+-- The >24h elapsed-time check (forensic review 2026-08-15) now
+-- applies only to UNFLAGGED records: rows carrying a
+-- duration_plausibility_reason ('IMPLAUSIBLE_SPEED',
+-- 'ZERO_DURATION', 'LONG_TRIP') are retained-and-flagged source
+-- anomalies by design and must not fail this assertion.
+
 SELECT *
 FROM ${ref("stg_taxi_trips")}
 WHERE trip_start_timestamp IS NULL
    OR trip_end_timestamp IS NULL
    OR trip_end_timestamp < trip_start_timestamp
    OR trip_seconds IS NULL
-   OR TIMESTAMP_DIFF(
-        trip_end_timestamp,
-        trip_start_timestamp,
-        HOUR
-      ) > 24
+   OR (
+        duration_plausibility_reason IS NULL
+        AND TIMESTAMP_DIFF(
+              trip_end_timestamp,
+              trip_start_timestamp,
+              HOUR
+            ) > 24
+      )

@@ -6,7 +6,7 @@ graph LR
     end
 
     subgraph DQ["DATA QUALITY CHECKPOINT — Dataform assertions"]
-        asrt_taxi["6 taxi assertions<br/>dup/null unique_key<br/>positive miles, seconds, total<br/>valid timestamps"]
+        asrt_taxi["7 taxi assertions<br/>dup/null unique_key<br/>positive miles, seconds, total<br/>valid timestamps<br/>bounded vehicle-day activity"]
         asrt_weather["5 weather assertions<br/>dup/null weather_date<br/>non-negative precip, snow<br/>valid temperature"]
         asrt_holiday["2 holiday assertions<br/>dup/null holiday_date"]
     end
@@ -22,8 +22,8 @@ graph LR
             fact_trip["fact_taxi_trip"]
             fact_daily["fact_daily_demand"]
         end
-        subgraph GS["Shift Chain"]
-            shift["shift_summary"]
+        subgraph GV["Vehicle Utilization Chain"]
+            vad["vehicle_activity_day"]
             over["overworkers"]
         end
         subgraph GR["Reports"]
@@ -59,8 +59,8 @@ graph LR
     dim_weather --> fact_daily
     dim_holiday --> fact_daily
 
-    stg_taxi --> shift
-    shift --> over
+    stg_taxi --> vad
+    vad --> over
 
     fact_trip --> exec
     dim_weather --> exec
@@ -100,7 +100,7 @@ graph LR
     class asrt_taxi,asrt_weather,asrt_holiday asrt
     class dim_date,dim_weather,dim_holiday,dim_area goldDim
     class fact_trip,fact_daily goldFact
-    class shift,over goldShift
+    class vad,over goldShift
     class exec,hw,bi1,bi2,geo,fc_feat,fc_dash,tips goldRpt
     class preds ml
     class looker bi

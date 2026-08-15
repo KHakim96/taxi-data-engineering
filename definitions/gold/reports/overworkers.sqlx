@@ -2,37 +2,47 @@ config {
   type: "table",
   schema: "gold",
   name: "overworkers",
-  description: "Aggregates bounded vehicle operational blocks to identify potential overwork. The dataset does not contain driver identifiers, so taxi_id is used as a vehicle-level proxy. Blocks exceeding 12 active trip hours are classified as Potential Overworker."
+  description: "Vehicle-Day Utilization report (name kept for Looker data-source compatibility). Aggregates gold.vehicle_activity_day at one row per taxi per activity date. All measures are VEHICLE-level utilization — this is NOT driver overtime: taxi_id is a medallion-level identifier, multiple drivers may share one vehicle, and no driver identity, driver hours, or rest compliance is claimed. In Looker, sum days_exceeding_single_driver_capacity over a date range to count vehicle-days beyond single-driver legal capacity (>12 active hours, the Chicago chauffeur limit per MCC 9-112-250)."
 }
 
+/*
+  Grain: taxi_id × activity_date (per-day rows; Looker aggregates
+  across the user-selected date range).
+
+  Field contract:
+  - days_exceeding_single_driver_capacity : 0/1 per day   -> SUM in Looker
+  - total_active_hours                    : daily hours   -> SUM in Looker
+  - max_daily_active_hours                : daily hours   -> MAX in Looker
+  - avg_daily_active_hours                : daily hours   -> AVG in Looker
+  - total_trip_miles / trip_count         : daily totals  -> SUM in Looker
+*/
+
 SELECT
-  DATE(shift_start_datetime) AS shift_date,
+  activity_date,
 
   taxi_id,
+  taxi_label,
+  company,
 
-  ANY_VALUE(taxi_label) AS taxi_label,
-  ANY_VALUE(company) AS company,
+  IF(
+    capacity_classification =
+      'Exceeds single-driver legal capacity (multi-driver and/or overwork — indeterminate)',
+    1,
+    0
+  ) AS days_exceeding_single_driver_capacity,
 
-  COUNT(*) AS total_operational_blocks,
+  active_hours AS total_active_hours,
+  active_hours AS max_daily_active_hours,
+  active_hours AS avg_daily_active_hours,
 
-  COUNTIF(
-    shift_classification = 'Within 12-Hour Limit'
-  ) AS within_12_hour_block_count,
+  trip_miles AS total_trip_miles,
+  trip_count,
 
-  COUNTIF(
-    shift_classification = 'Potential Overworker'
-  ) AS potential_overworker_block_count,
+  longest_single_trip_minutes,
+  max_concurrent_trips,
+  implausible_records_excluded,
 
-  SUM(active_trip_hours) AS total_active_trip_hours,
+  capacity_classification,
+  day_night_flag
 
-  MAX(active_trip_hours) AS longest_active_trip_hours,
-
-  SUM(shift_duration_hours) AS total_elapsed_block_hours,
-
-  MAX(shift_duration_hours) AS longest_elapsed_block_hours
-
-FROM ${ref("shift_summary")}
-
-GROUP BY
-  shift_date,
-  taxi_id
+FROM ${ref("vehicle_activity_day")}

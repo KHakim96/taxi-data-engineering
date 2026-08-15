@@ -14,24 +14,29 @@
 - User selects the time window via the date range picker
 
 
-# Q2: Top 100 Overworkers
+# Q2: Vehicle Utilization Beyond Single-Driver Capacity
 
-**Definition:** Taxi IDs that work more hours than others without taking at least an 8-hour break and regularly have long shifts.
+**Definition:** Taxi IDs (vehicles) whose daily active operating time exceeds what one legal driver would be permitted to drive, ranked by vehicle-days beyond that capacity.
 
 **Assumptions:**
 
-- "8 hours break" = a gap of ≥480 minutes between consecutive trips starts a new shift (implemented in `shift_summary.sqlx`)
-- "Long shift" = 12–24 hours. Shifts in this range are classified as Overworker
-- "Typical shifts" = the Normal classification (<12 hours) represents typical human work patterns; the fleet-wide median is ~5–8 hours
-- Shifts >24 hours are classified as Shared Vehicle Fleet — these represent multi-driver vehicles, not individual overworkers, and are excluded from the overworker ranking
-- The dataset has no driver identifier, so `taxi_id` is used as a proxy
+- "Active time" = union of non-overlapping trip intervals per vehicle per Chicago-local calendar day (merged with a sweep-line algorithm; overlaps counted once, gaps not counted)
+- "Single-driver capacity" = 12 active hours, the Chicago chauffeur limit (MCC §9-112-250: no chauffeur operates a taxicab more than 12 consecutive hours in a 24-hour period)
+- Records flagged `IMPLAUSIBLE_SPEED` in Silver (≥2 hours at <3 mph — meter/device artifacts) are excluded from trusted utilization; their count is retained in `implausible_records_excluded`
+- Time window is user-controlled — the Looker Studio date picker filters the data; top 100 applied via Looker's "top N" ranking on the filtered set
+- The dataset has no driver identifier; `taxi_id` is a medallion-level **vehicle** identifier
+
+**Limitations:**
+
+- A vehicle-day >12 active hours is **indistinguishable** between one overworking driver and two leased shifts sharing the medallion (the industry-standard 12h/24h lease structure) — hence the classification label "Exceeds single-driver legal capacity (multi-driver and/or overwork — indeterminate)"
+- This metric never claims driver identity, driver hours, or driver rest compliance
 
 **Methodology:**
 
-- Shift reconstruction: `gold.shift_summary` sessionizes trips per taxi using the 8-hour gap rule, then classifies each shift as Normal / Overworker / Shared Vehicle Fleet
-- Daily aggregation: `gold.overworkers` rolls shifts up to one row per taxi per day, counting `overworker_shift_count`, `total_shift_hours`, `longest_shift_hours`
-- Looker Studio: aggregate SUM(`overworker_shift_count`) by `taxi_label`, apply Top N = 100, sort descending. User selects the time window via the date range picker
-- Regularity is visible via `longest_shift_hours` and the ratio of overworker shifts to total shifts
+- Utilization model: `gold.vehicle_activity_day` (one row per taxi × activity date) computes `active_hours` from merged, midnight-clipped intervals; classification at >12 active hours
+- Report table: `gold.overworkers` (name kept for Looker compatibility) provides per taxi-day `days_exceeding_single_driver_capacity` (0/1, summed in Looker), `total_active_hours`, `max_daily_active_hours`, `avg_daily_active_hours`
+- Looker Studio: aggregate SUM(`days_exceeding_single_driver_capacity`) by `taxi_label` over the selected date range, apply Top N = 100, sort descending
+- Utilization intensity is visible via `max_daily_active_hours` and the ratio of capacity-exceeding days to total days
 
 
 ## Q3: Public Holiday Impact on Trips

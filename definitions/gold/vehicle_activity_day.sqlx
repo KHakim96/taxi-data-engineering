@@ -1,0 +1,317 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "vehicle_activity_day",
+  description: "Canonical Vehicle-Day Utilization model (forensic review 2026-08-15). Grain: one row per taxi_id per America/Chicago calendar date. Active time = union of non-overlapping trip intervals built with the validated sweep-line merge over trip_start_datetime → trip_end_datetime_exact, clipped at local midnight. Records flagged IMPLAUSIBLE_SPEED in Silver are excluded here and their count retained in implausible_records_excluded. More than 12 active hours = 'Exceeds single-driver legal capacity' — a VEHICLE-level capacity metric anchored to the Chicago chauffeur limit (MCC 9-112-250). It is NOT driver overtime: taxi_id is a medallion-level vehicle identifier, multiple drivers may share one vehicle, and this model never claims driver identity, driver hours, or rest compliance."
+}
+
+WITH trusted_trips AS (
+
+  SELECT
+    taxi_id,
+    taxi_label,
+    company,
+    trip_start_datetime,
+    trip_end_datetime_exact,
+    trip_seconds,
+    trip_miles,
+    DATE(trip_start_datetime) AS start_date
+  FROM ${ref("stg_taxi_trips")}
+  WHERE taxi_id IS NOT NULL
+    AND trip_start_datetime IS NOT NULL
+    AND trip_end_datetime_exact IS NOT NULL
+    -- Only IMPLAUSIBLE_SPEED records are excluded from trusted utilization,
+    -- per the approved plausibility rule. ZERO_DURATION and LONG_TRIP are
+    -- informational flags and remain trusted here.
+    AND NOT duration_plausibility_flag
+),
+
+excluded_trips AS (
+
+  SELECT
+    taxi_id,
+    DATE(trip_start_datetime) AS start_date
+  FROM ${ref("stg_taxi_trips")}
+  WHERE taxi_id IS NOT NULL
+    AND trip_start_datetime IS NOT NULL
+    AND duration_plausibility_flag
+),
+
+-- =========================================================
+-- 1. Start/end events for the sweep-line interval merge.
+--    +1 at trip_start_datetime, -1 at trip_end_datetime_exact.
+--    Zero-duration trips (exact end = start) contribute no
+--    interval and are excluded from events.
+-- =========================================================
+
+events AS (
+
+  SELECT
+    taxi_id,
+    trip_start_datetime AS event_datetime,
+    1 AS delta
+  FROM trusted_trips
+  WHERE trip_end_datetime_exact > trip_start_datetime
+
+  UNION ALL
+
+  SELECT
+    taxi_id,
+    trip_end_datetime_exact AS event_datetime,
+    -1 AS delta
+  FROM trusted_trips
+  WHERE trip_end_datetime_exact > trip_start_datetime
+),
+
+-- =========================================================
+-- 2. Collapse events at identical timestamps.
+-- =========================================================
+
+event_points AS (
+
+  SELECT
+    taxi_id,
+    event_datetime,
+    SUM(delta) AS delta
+  FROM events
+  GROUP BY
+    taxi_id,
+    event_datetime
+),
+
+-- =========================================================
+-- 3. Validated sweep-line: running SUM gives concurrent active
+--    trips; LEAD gives the next boundary. Periods with count > 0
+--    are NON-OVERLAPPING merged activity intervals. This exact
+--    algorithm was validated against overlap, nesting, adjacency,
+--    gaps, zero-duration, duplicate timestamps and same-end
+--    clusters (forensic review, Step 3).
+-- =========================================================
+
+coverage AS (
+
+  SELECT
+    taxi_id,
+    event_datetime,
+    SUM(delta) OVER (
+      PARTITION BY taxi_id
+      ORDER BY event_datetime
+      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS active_trip_count,
+    LEAD(event_datetime) OVER (
+      PARTITION BY taxi_id
+      ORDER BY event_datetime
+    ) AS next_event_datetime
+  FROM event_points
+),
+
+active_intervals AS (
+
+  SELECT
+    taxi_id,
+    event_datetime AS active_start,
+    next_event_datetime AS active_end,
+    active_trip_count
+  FROM coverage
+  WHERE active_trip_count > 0
+    AND next_event_datetime IS NOT NULL
+    AND next_event_datetime > event_datetime
+),
+
+-- =========================================================
+-- 4. Clip intervals at America/Chicago calendar-date
+--    boundaries (midnight). Intervals spanning N days are
+--    split so each day owns only its own activity.
+-- =========================================================
+
+clipped_intervals AS (
+
+  SELECT
+    taxi_id,
+    DATE_ADD(DATE(active_start), INTERVAL d DAY) AS activity_date,
+    GREATEST(
+      active_start,
+      DATETIME_ADD(DATETIME(DATE(active_start)), INTERVAL d DAY)
+    ) AS window_start,
+    LEAST(
+      active_end,
+      DATETIME_ADD(DATETIME(DATE(active_start)), INTERVAL (d + 1) DAY)
+    ) AS window_end,
+    active_trip_count
+  FROM active_intervals,
+  UNNEST(
+    GENERATE_ARRAY(
+      0,
+      DATE_DIFF(DATE(active_end), DATE(active_start), DAY)
+    )
+  ) AS d
+  WHERE GREATEST(
+      active_start,
+      DATETIME_ADD(DATETIME(DATE(active_start)), INTERVAL d DAY)
+    ) < LEAST(
+      active_end,
+      DATETIME_ADD(DATETIME(DATE(active_start)), INTERVAL (d + 1) DAY)
+    )
+),
+
+-- =========================================================
+-- 5. Per taxi-day activity metrics from the interval UNION.
+--    Active time is summed from disjoint clipped intervals —
+--    never from SUM(trip_seconds) — so overlap is never
+--    double-counted and gaps are never counted as activity.
+-- =========================================================
+
+day_activity AS (
+
+  SELECT
+    taxi_id,
+    activity_date,
+
+    SUM(
+      DATETIME_DIFF(window_end, window_start, SECOND)
+    ) AS active_seconds,
+
+    MIN(window_start) AS first_activity_datetime,
+    MAX(window_end) AS last_activity_datetime,
+
+    MAX(active_trip_count) AS max_concurrent_trips,
+
+    -- Day-window overlap (05:00-16:59) for the day/night flag.
+    SUM(
+      GREATEST(
+        0,
+        DATETIME_DIFF(
+          LEAST(
+            window_end,
+            DATETIME_ADD(DATETIME(activity_date), INTERVAL 17 HOUR)
+          ),
+          GREATEST(
+            window_start,
+            DATETIME_ADD(DATETIME(activity_date), INTERVAL 5 HOUR)
+          ),
+          SECOND
+        )
+      )
+    ) AS day_window_seconds
+  FROM clipped_intervals
+  GROUP BY
+    taxi_id,
+    activity_date
+),
+
+-- =========================================================
+-- 6. Per taxi-day trip metrics (attributed by trip start date).
+-- =========================================================
+
+day_trips AS (
+
+  SELECT
+    taxi_id,
+    start_date,
+    COUNT(*) AS trip_count,
+    SUM(trip_miles) AS trip_miles,
+    MAX(trip_seconds) / 60.0 AS longest_single_trip_minutes
+  FROM trusted_trips
+  GROUP BY
+    taxi_id,
+    start_date
+),
+
+excluded_counts AS (
+
+  SELECT
+    taxi_id,
+    start_date,
+    COUNT(*) AS implausible_records_excluded
+  FROM excluded_trips
+  GROUP BY
+    taxi_id,
+    start_date
+),
+
+-- =========================================================
+-- 7. Grain: union of taxi-days with trusted trips, trusted
+--    activity (including spillover from trips that started
+--    the previous day), or excluded records — so exclusions
+--    stay visible even when no trusted activity exists.
+-- =========================================================
+
+taxi_days AS (
+
+  SELECT taxi_id, activity_date FROM day_activity
+  UNION DISTINCT
+  SELECT taxi_id, start_date AS activity_date FROM day_trips
+  UNION DISTINCT
+  SELECT taxi_id, start_date FROM excluded_counts
+)
+
+SELECT
+  td.taxi_id,
+
+  st.taxi_label,
+  st.company,
+
+  td.activity_date,
+
+  ROUND(IFNULL(da.active_seconds, 0) / 60.0, 2) AS active_minutes,
+  ROUND(IFNULL(da.active_seconds, 0) / 3600.0, 4) AS active_hours,
+
+  IFNULL(dt.trip_count, 0) AS trip_count,
+  ROUND(IFNULL(dt.trip_miles, 0), 2) AS trip_miles,
+
+  ROUND(IFNULL(dt.longest_single_trip_minutes, 0), 2)
+    AS longest_single_trip_minutes,
+
+  IFNULL(da.max_concurrent_trips, 0) AS max_concurrent_trips,
+
+  IFNULL(ec.implausible_records_excluded, 0)
+    AS implausible_records_excluded,
+
+  ROUND(
+    IFNULL(
+      DATETIME_DIFF(
+        da.last_activity_datetime,
+        da.first_activity_datetime,
+        SECOND
+      ),
+      0
+    ) / 60.0,
+    2
+  ) AS elapsed_first_to_last_minutes,
+
+  -- 12-hour threshold = legal capacity ceiling of ONE chauffeur
+  -- (MCC 9-112-250). Comparison uses exact seconds so exactly
+  -- 12h00m00s classifies as Within.
+  CASE
+    WHEN IFNULL(da.active_seconds, 0) > 43200
+      THEN 'Exceeds single-driver legal capacity (multi-driver and/or overwork — indeterminate)'
+    ELSE 'Within single-driver capacity'
+  END AS capacity_classification,
+
+  -- ANALYTICAL ASSUMPTION — NOT Chicago regulatory truth:
+  -- the 05:00/17:00 split is benchmarked to NYC lease convention
+  -- and multi-city changeover clustering; Chicago lease start
+  -- times are contractual (blank field on the City lease form).
+  CASE
+    WHEN da.active_seconds IS NULL THEN NULL
+    WHEN IFNULL(da.day_window_seconds, 0) * 2 >= da.active_seconds
+      THEN 'Day'
+    ELSE 'Night'
+  END AS day_night_flag
+
+FROM taxi_days td
+LEFT JOIN day_activity da
+  ON da.taxi_id = td.taxi_id AND da.activity_date = td.activity_date
+LEFT JOIN day_trips dt
+  ON dt.taxi_id = td.taxi_id AND dt.start_date = td.activity_date
+LEFT JOIN excluded_counts ec
+  ON ec.taxi_id = td.taxi_id AND ec.start_date = td.activity_date
+-- Labels from the FULL Silver table (not only trusted trips) so taxi-days
+-- whose only records are implausible still carry taxi_label/company.
+LEFT JOIN (
+  SELECT taxi_id, ANY_VALUE(taxi_label) AS taxi_label, ANY_VALUE(company) AS company
+  FROM ${ref("stg_taxi_trips")}
+  WHERE taxi_id IS NOT NULL
+  GROUP BY taxi_id
+) st
+  ON st.taxi_id = td.taxi_id

@@ -38,6 +38,15 @@ SELECT
   trip_start_datetime,
   trip_end_datetime,
 
+  -- Exact end reconstructed from trip_seconds in Chicago-local wall-clock time.
+  -- Source timestamps are rounded to the nearest 15 minutes (Chicago Data Portal),
+  -- so interval math in Gold uses this exact reconstruction, not trip_end_datetime.
+  -- Wall-clock arithmetic: DST transition days are 23/25 hours (documented limitation).
+  DATETIME_ADD(
+    trip_start_datetime,
+    INTERVAL trip_seconds SECOND
+  ) AS trip_end_datetime_exact,
+
   DATE(trip_start_datetime) AS trip_date,
 
   EXTRACT(YEAR FROM trip_start_datetime) AS trip_year,
@@ -123,6 +132,41 @@ SELECT
   END AS fare_anomaly_reason,
 
 
+  /*
+    Duration plausibility flags (forensic review 2026-08-15).
+
+    Records are flagged, never deleted, so lineage is preserved.
+    Evidence (Bronze profiling): 98.9% of >12h records have implied
+    speed < 3 mph (median 1.3 miles) — meter/device artifacts.
+
+    Rules:
+    1. IMPLAUSIBLE_SPEED — physically implausible: >= 2 hours at < 3 mph.
+       Excluded from trusted Gold utilization analytics, retained here.
+    2. ZERO_DURATION     — informational only.
+    3. LONG_TRIP         — > 12 hours, informational only. A plausible
+       long trip (>12h at reasonable speed) is retained everywhere and
+       counts as activity; the 12h threshold is a chauffeur capacity
+       limit (MCC §9-112-250), not a data-quality bound.
+  */
+
+  CASE
+    WHEN trip_seconds >= 7200
+      AND SAFE_DIVIDE(trip_miles, trip_seconds / 3600.0) < 3
+      THEN TRUE
+    ELSE FALSE
+  END AS duration_plausibility_flag,
+
+  CASE
+    WHEN trip_seconds >= 7200
+      AND SAFE_DIVIDE(trip_miles, trip_seconds / 3600.0) < 3
+      THEN 'IMPLAUSIBLE_SPEED'
+    WHEN trip_seconds = 0
+      THEN 'ZERO_DURATION'
+    WHEN trip_seconds > 43200
+      THEN 'LONG_TRIP'
+    ELSE NULL
+  END AS duration_plausibility_reason,
+
   pickup_census_tract,
   dropoff_census_tract,
 
@@ -163,7 +207,8 @@ AND trip_end_timestamp >= trip_start_timestamp
 -- Remove corrupted records
 AND trip_seconds IS NOT NULL
 
--- Exclude individual trip records exceeding 12 hours.
--- This prevents near-24-hour source records from
--- being interpreted as continuous driver activity.
-AND trip_seconds <= 43200
+-- NOTE (forensic review 2026-08-15):
+-- The previous hard delete "AND trip_seconds <= 43200" was removed.
+-- Records >12h are retained and flagged via duration_plausibility_reason
+-- ('IMPLAUSIBLE_SPEED' or 'LONG_TRIP'). Gold trusted analytics exclude
+-- IMPLAUSIBLE_SPEED explicitly; Silver preserves full lineage.
