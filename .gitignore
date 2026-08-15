@@ -20,3 +20,11 @@ package.json
 npm-debug.log*
 yarn.lock
 pnpm-lock.yaml
+
+# Cleanup-audit candidates — kept locally for review, excluded from the repo
+/scratch.sql
+/scratch/
+/gold_schema.md
+/note.md
+definitions/gold/shift_summary.sqlx
+definitions/gold/dim_date.sqlx
