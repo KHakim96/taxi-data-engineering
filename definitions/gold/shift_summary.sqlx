@@ -2,172 +2,297 @@ config {
   type: "table",
   schema: "gold",
   name: "shift_summary",
-  description: "Reconstructs vehicle operational blocks using an 8-hour inactivity boundary and a maximum 24-hour block window. Active trip hours are calculated from trip duration, excluding inactivity. Blocks exceeding 12 active trip hours are classified as Potential Overworker. Because the dataset has no driver identifier, this is a vehicle-level proxy and does not prove individual driver overtime."
+  description: "Reconstructs vehicle operational blocks from non-overlapping taxi activity intervals. Overlapping trip records are merged before calculating active hours to prevent double-counting. Blocks are separated by an 8-hour inactivity boundary and bounded into 24-hour windows. Blocks exceeding 12 active hours are classified as Potential Overworker. Because the dataset has no driver identifier, this is a vehicle-level proxy and does not prove individual driver overtime."
 }
 
-WITH trip_starts AS (
+WITH trips AS (
 
-    SELECT
-        unique_key,
-        taxi_id,
-        taxi_label,
-        company,
+  SELECT
+    unique_key,
+    taxi_id,
+    taxi_label,
+    company,
+    trip_start_datetime,
+    trip_end_datetime,
+    trip_total
 
-        trip_start_datetime,
-        trip_end_datetime,
+  FROM ${ref("stg_taxi_trips")}
 
-        trip_seconds,
-        trip_total,
-
-        DATETIME_DIFF(
-            trip_start_datetime,
-            LAG(trip_end_datetime) OVER (
-                PARTITION BY taxi_id
-                ORDER BY
-                    trip_start_datetime,
-                    trip_end_datetime,
-                    unique_key
-            ),
-            MINUTE
-        ) AS gap_minutes
-
-    FROM ${ref("stg_taxi_trips")}
-
-    WHERE taxi_id IS NOT NULL
+  WHERE taxi_id IS NOT NULL
+    AND trip_start_datetime IS NOT NULL
+    AND trip_end_datetime IS NOT NULL
+    AND trip_end_datetime > trip_start_datetime
 ),
 
-initial_blocks AS (
+/* =========================================================
+   1. Convert every trip into start/end events.
+   ========================================================= */
 
-    SELECT
-        *,
+events AS (
 
-        -- Start a new block when:
-        -- 1. This is the first trip for the taxi, OR
-        -- 2. The taxi has been inactive for at least 8 hours.
-        IF(
-            gap_minutes IS NULL
-            OR gap_minutes >= 480,
-            1,
-            0
-        ) AS is_new_block
+  SELECT
+    taxi_id,
+    taxi_label,
+    company,
+    trip_start_datetime AS event_datetime,
+    1 AS delta
+  FROM trips
 
-    FROM trip_starts
+  UNION ALL
+
+  SELECT
+    taxi_id,
+    taxi_label,
+    company,
+    trip_end_datetime AS event_datetime,
+    -1 AS delta
+  FROM trips
 ),
 
-session_ids AS (
+/* =========================================================
+   2. Collapse events occurring at the same timestamp.
+   ========================================================= */
 
-    SELECT
-        *,
+event_points AS (
 
-        SUM(is_new_block) OVER (
-            PARTITION BY taxi_id
-            ORDER BY
-                trip_start_datetime,
-                trip_end_datetime,
-                unique_key
-        ) AS session_id
+  SELECT
+    taxi_id,
+    MIN(taxi_label) AS taxi_label,
+    MIN(company) AS company,
+    event_datetime,
+    SUM(delta) AS delta
 
-    FROM initial_blocks
+  FROM events
+
+  GROUP BY
+    taxi_id,
+    event_datetime
 ),
 
-session_start AS (
+/* =========================================================
+   3. Calculate how many overlapping trips are active
+      after each event.
+   ========================================================= */
 
-    SELECT
-        *,
+coverage AS (
 
-        MIN(trip_start_datetime) OVER (
-            PARTITION BY taxi_id, session_id
-        ) AS session_start_datetime
+  SELECT
+    taxi_id,
+    taxi_label,
+    company,
+    event_datetime,
 
-    FROM session_ids
+    SUM(delta) OVER (
+      PARTITION BY taxi_id
+      ORDER BY event_datetime
+      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS active_trip_count,
+
+    LEAD(event_datetime) OVER (
+      PARTITION BY taxi_id
+      ORDER BY event_datetime
+    ) AS next_event_datetime
+
+  FROM event_points
 ),
 
-bounded_blocks AS (
+/* =========================================================
+   4. Keep only periods where the taxi has at least one
+      active trip.
 
-    SELECT
-        *,
+      This produces NON-OVERLAPPING active intervals.
+   ========================================================= */
 
-        -- Prevent a continuous session from becoming
-        -- a multi-day or multi-month "shift".
-        FLOOR(
-            DATETIME_DIFF(
-                trip_start_datetime,
-                session_start_datetime,
-                MINUTE
-            ) / 1440
-        ) AS block_sequence
+active_intervals AS (
 
-    FROM session_start
-),
-
-block_metrics AS (
-
-    SELECT
-        taxi_id,
-
-        ANY_VALUE(taxi_label) AS taxi_label,
-        ANY_VALUE(company) AS company,
-
-        session_id,
-        block_sequence,
-
-        MIN(trip_start_datetime) AS block_start_datetime,
-        MAX(trip_end_datetime) AS block_end_datetime,
-
-        -- Elapsed duration of the bounded block.
-        ROUND(
-            DATETIME_DIFF(
-                MAX(trip_end_datetime),
-                MIN(trip_start_datetime),
-                MINUTE
-            ) / 60.0,
-            2
-        ) AS block_duration_hours,
-
-        -- Actual active trip time; gaps are excluded.
-        ROUND(
-            SUM(trip_seconds) / 3600.0,
-            2
-        ) AS active_trip_hours,
-
-        COUNT(*) AS trips_in_block,
-
-        SUM(trip_total) AS block_revenue
-
-    FROM bounded_blocks
-
-    GROUP BY
-        taxi_id,
-        session_id,
-        block_sequence
-)
-
-SELECT
+  SELECT
     taxi_id,
     taxi_label,
     company,
 
-    CONCAT(
-        CAST(session_id AS STRING),
-        '-',
-        CAST(block_sequence AS STRING)
-    ) AS shift_id,
+    event_datetime AS active_start_datetime,
+    next_event_datetime AS active_end_datetime
 
-    block_start_datetime AS shift_start_datetime,
-    block_end_datetime AS shift_end_datetime,
+  FROM coverage
 
-    block_duration_hours AS shift_duration_hours,
+  WHERE active_trip_count > 0
+    AND next_event_datetime IS NOT NULL
+    AND next_event_datetime > event_datetime
+),
 
-    active_trip_hours,
+/* =========================================================
+   5. Calculate the gap between non-overlapping active
+      intervals.
 
-    trips_in_block AS trips_in_shift,
+      The 8-hour boundary is now based on REAL activity
+      intervals rather than overlapping source trips.
+   ========================================================= */
 
-    block_revenue AS shift_revenue,
+interval_gaps AS (
 
-    CASE
-        WHEN active_trip_hours > 12
-            THEN 'Potential Overworker'
-        ELSE 'Within 12-Hour Limit'
-    END AS shift_classification
+  SELECT
+    *,
+
+    DATETIME_DIFF(
+      active_start_datetime,
+      LAG(active_end_datetime) OVER (
+        PARTITION BY taxi_id
+        ORDER BY active_start_datetime
+      ),
+      MINUTE
+    ) AS gap_minutes
+
+  FROM active_intervals
+),
+
+/* =========================================================
+   6. Start a new operational session when:
+      - first active interval, OR
+      - inactivity >= 8 hours
+   ========================================================= */
+
+session_flags AS (
+
+  SELECT
+    *,
+
+    IF(
+      gap_minutes IS NULL
+      OR gap_minutes >= 480,
+      1,
+      0
+    ) AS is_new_session
+
+  FROM interval_gaps
+),
+
+session_ids AS (
+
+  SELECT
+    *,
+
+    SUM(is_new_session) OVER (
+      PARTITION BY taxi_id
+      ORDER BY active_start_datetime
+    ) AS session_id
+
+  FROM session_flags
+),
+
+/* =========================================================
+   7. Find the start of each operational session.
+   ========================================================= */
+
+session_starts AS (
+
+  SELECT
+    *,
+
+    MIN(active_start_datetime) OVER (
+      PARTITION BY taxi_id, session_id
+    ) AS session_start_datetime
+
+  FROM session_ids
+),
+
+/* =========================================================
+   8. Split very long operational sessions into 24-hour
+      blocks from the session start.
+
+      This prevents one taxi from producing a multi-day
+      "shift" when individual gaps remain below 8 hours.
+   ========================================================= */
+
+bounded_intervals AS (
+
+  SELECT
+    *,
+
+    FLOOR(
+      DATETIME_DIFF(
+        active_start_datetime,
+        session_start_datetime,
+        MINUTE
+      ) / 1440
+    ) AS block_sequence
+
+  FROM session_starts
+),
+
+/* =========================================================
+   9. Calculate metrics from NON-OVERLAPPING intervals.
+
+      IMPORTANT:
+      active_trip_hours is now based on merged activity,
+      not SUM(trip_seconds).
+   ========================================================= */
+
+block_metrics AS (
+
+  SELECT
+    taxi_id,
+
+    ANY_VALUE(taxi_label) AS taxi_label,
+    ANY_VALUE(company) AS company,
+
+    session_id,
+    block_sequence,
+
+    MIN(active_start_datetime) AS block_start_datetime,
+    MAX(active_end_datetime) AS block_end_datetime,
+
+    ROUND(
+      DATETIME_DIFF(
+        MAX(active_end_datetime),
+        MIN(active_start_datetime),
+        MINUTE
+      ) / 60.0,
+      2
+    ) AS shift_duration_hours,
+
+    ROUND(
+      SUM(
+        DATETIME_DIFF(
+          active_end_datetime,
+          active_start_datetime,
+          SECOND
+        )
+      ) / 3600.0,
+      2
+    ) AS active_trip_hours
+
+  FROM bounded_intervals
+
+  GROUP BY
+    taxi_id,
+    session_id,
+    block_sequence
+)
+
+SELECT
+  taxi_id,
+  taxi_label,
+  company,
+
+  CONCAT(
+    CAST(session_id AS STRING),
+    '-',
+    CAST(block_sequence AS STRING)
+  ) AS shift_id,
+
+  block_start_datetime AS shift_start_datetime,
+  block_end_datetime AS shift_end_datetime,
+
+  shift_duration_hours,
+  active_trip_hours,
+
+  CASE
+    WHEN active_trip_hours > 12
+      THEN 'Potential Overworker'
+    ELSE 'Within 12-Hour Limit'
+  END AS shift_classification,
+
+  NULL AS trips_in_shift,
+  NULL AS shift_revenue
 
 FROM block_metrics

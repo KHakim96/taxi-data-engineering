@@ -29,11 +29,7 @@ SELECT
 
   SUM(shift_duration_hours) AS total_elapsed_block_hours,
 
-  MAX(shift_duration_hours) AS longest_elapsed_block_hours,
-
-  SUM(trips_in_shift) AS total_trips,
-
-  SUM(shift_revenue) AS total_revenue
+  MAX(shift_duration_hours) AS longest_elapsed_block_hours
 
 FROM ${ref("shift_summary")}
 
