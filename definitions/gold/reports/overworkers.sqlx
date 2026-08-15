@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "gold",
   name: "overworkers",
-  description: "Aggregates vehicle operational blocks to identify potential overwork. The dataset does not contain driver identifiers, so taxi_id is used as a vehicle-level proxy. Potential overwork is identified when a vehicle operational block exceeds 12 active trip hours."
+  description: "Aggregates bounded vehicle operational blocks to identify potential overwork. The dataset does not contain driver identifiers, so taxi_id is used as a vehicle-level proxy. Blocks exceeding 12 active trip hours are classified as Potential Overworker."
 }
 
 SELECT

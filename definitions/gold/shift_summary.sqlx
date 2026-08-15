@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "gold",
   name: "shift_summary",
-  description: "Reconstructs vehicle operational blocks by grouping trips for the same taxi_id when consecutive inactivity gaps are less than 8 hours. The 8-hour boundary is an analytical proxy informed by Chicago's statutory 8-hour rest requirement. Because the dataset does not contain a driver identifier, driver-level shifts cannot be directly measured. Blocks exceeding 12 active trip hours are classified as Potential Overworker."
+  description: "Reconstructs vehicle operational blocks using an 8-hour inactivity boundary and a maximum 24-hour block window. Active trip hours are calculated from trip duration, excluding inactivity. Blocks exceeding 12 active trip hours are classified as Potential Overworker. Because the dataset has no driver identifier, this is a vehicle-level proxy and does not prove individual driver overtime."
 }
 
 WITH trip_starts AS (
@@ -13,17 +13,12 @@ WITH trip_starts AS (
         taxi_label,
         company,
 
-        trip_start_timestamp,
-        trip_end_timestamp,
-
         trip_start_datetime,
         trip_end_datetime,
 
         trip_seconds,
         trip_total,
 
-        -- Gap between the previous trip ending
-        -- and the current trip starting.
         DATETIME_DIFF(
             trip_start_datetime,
             LAG(trip_end_datetime) OVER (
@@ -41,42 +36,68 @@ WITH trip_starts AS (
     WHERE taxi_id IS NOT NULL
 ),
 
-session_flags AS (
+initial_blocks AS (
 
     SELECT
         *,
 
-        -- Start a new vehicle operational block when:
-        -- 1. This is the taxi's first trip, OR
+        -- Start a new block when:
+        -- 1. This is the first trip for the taxi, OR
         -- 2. The taxi has been inactive for at least 8 hours.
-        --
-        -- The 8-hour boundary is used as an analytical proxy
-        -- informed by Chicago's statutory rest requirement.
         IF(
             gap_minutes IS NULL
             OR gap_minutes >= 480,
             1,
             0
-        ) AS is_new_operational_block
+        ) AS is_new_block
 
     FROM trip_starts
 ),
 
-block_ids AS (
+session_ids AS (
 
     SELECT
         *,
 
-        -- Assign a sequential operational block ID per taxi.
-        SUM(is_new_operational_block) OVER (
+        SUM(is_new_block) OVER (
             PARTITION BY taxi_id
             ORDER BY
                 trip_start_datetime,
                 trip_end_datetime,
                 unique_key
-        ) AS operational_block_id
+        ) AS session_id
 
-    FROM session_flags
+    FROM initial_blocks
+),
+
+session_start AS (
+
+    SELECT
+        *,
+
+        MIN(trip_start_datetime) OVER (
+            PARTITION BY taxi_id, session_id
+        ) AS session_start_datetime
+
+    FROM session_ids
+),
+
+bounded_blocks AS (
+
+    SELECT
+        *,
+
+        -- Prevent a continuous session from becoming
+        -- a multi-day or multi-month "shift".
+        FLOOR(
+            DATETIME_DIFF(
+                trip_start_datetime,
+                session_start_datetime,
+                MINUTE
+            ) / 1440
+        ) AS block_sequence
+
+    FROM session_start
 ),
 
 block_metrics AS (
@@ -87,13 +108,13 @@ block_metrics AS (
         ANY_VALUE(taxi_label) AS taxi_label,
         ANY_VALUE(company) AS company,
 
-        operational_block_id,
+        session_id,
+        block_sequence,
 
         MIN(trip_start_datetime) AS block_start_datetime,
         MAX(trip_end_datetime) AS block_end_datetime,
 
-        -- Elapsed time from first trip start to last trip end.
-        -- This includes inactivity/breaks within the block.
+        -- Elapsed duration of the bounded block.
         ROUND(
             DATETIME_DIFF(
                 MAX(trip_end_datetime),
@@ -103,8 +124,7 @@ block_metrics AS (
             2
         ) AS block_duration_hours,
 
-        -- Actual time spent on trips.
-        -- Breaks between trips are excluded.
+        -- Actual active trip time; gaps are excluded.
         ROUND(
             SUM(trip_seconds) / 3600.0,
             2
@@ -114,11 +134,12 @@ block_metrics AS (
 
         SUM(trip_total) AS block_revenue
 
-    FROM block_ids
+    FROM bounded_blocks
 
     GROUP BY
         taxi_id,
-        operational_block_id
+        session_id,
+        block_sequence
 )
 
 SELECT
@@ -126,7 +147,11 @@ SELECT
     taxi_label,
     company,
 
-    operational_block_id AS shift_id,
+    CONCAT(
+        CAST(session_id AS STRING),
+        '-',
+        CAST(block_sequence AS STRING)
+    ) AS shift_id,
 
     block_start_datetime AS shift_start_datetime,
     block_end_datetime AS shift_end_datetime,
@@ -140,12 +165,9 @@ SELECT
     block_revenue AS shift_revenue,
 
     CASE
-        WHEN active_trip_hours <= 12
-            THEN 'Within 12-Hour Limit'
-
         WHEN active_trip_hours > 12
             THEN 'Potential Overworker'
-
+        ELSE 'Within 12-Hour Limit'
     END AS shift_classification
 
 FROM block_metrics
