@@ -121,7 +121,7 @@ SELECT
 
     ELSE NULL
   END AS fare_anomaly_reason,
-  
+
 
   pickup_census_tract,
   dropoff_census_tract,
@@ -137,18 +137,33 @@ SELECT
   dropoff_longitude,
   dropoff_location
 
+-- FROM localized
+
+-- WHERE trip_start_timestamp IS NOT NULL
+--  AND trip_end_timestamp IS NOT NULL
+--  AND trip_end_timestamp >= trip_start_timestamp
+
+  -- Remove corrupted records
+  -- AND trip_seconds IS NOT NULL
+
+  -- Remove impossible trips (>24 hours)
+  -- AND TIMESTAMP_DIFF(
+        -- trip_end_timestamp,
+        -- trip_start_timestamp,
+        -- HOUR
+      -- ) <= 24
+
+
 FROM localized
 
 WHERE trip_start_timestamp IS NOT NULL
-  AND trip_end_timestamp IS NOT NULL
-  AND trip_end_timestamp >= trip_start_timestamp
+AND trip_end_timestamp IS NOT NULL
+AND trip_end_timestamp >= trip_start_timestamp
 
-  -- Remove corrupted records
-  AND trip_seconds IS NOT NULL
+-- Remove corrupted records
+AND trip_seconds IS NOT NULL
 
-  -- Remove impossible trips (>24 hours)
-  AND TIMESTAMP_DIFF(
-        trip_end_timestamp,
-        trip_start_timestamp,
-        HOUR
-      ) <= 24
+-- Exclude individual trip records exceeding 12 hours.
+-- This prevents near-24-hour source records from
+-- being interpreted as continuous driver activity.
+AND trip_seconds <= 43200
