@@ -68,8 +68,11 @@ removed; it destroyed 46,843 records including plausible long trips.
 
 ## 5. Capacity classification
 
-- `active_hours <= 12.0` → **"Within single-driver capacity"**
-- `active_hours > 12.0` → **"Exceeds single-driver legal capacity (multi-driver and/or overwork — indeterminate)"**
+`exceeds_single_driver_capacity` (BOOLEAN) is TRUE when active time exceeds
+12 hours:
+
+- `active_hours <= 12.0` → `FALSE` — within single-driver capacity
+- `active_hours > 12.0` → `TRUE` — exceeds single-driver legal capacity (multi-driver and/or overwork — indeterminate)
 
 The 12-hour threshold is the Chicago chauffeur limit (MCC §9-112-250: no
 chauffeur operates a taxicab more than 12 consecutive hours in a 24-hour

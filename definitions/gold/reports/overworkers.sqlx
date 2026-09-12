@@ -24,12 +24,8 @@ SELECT
   taxi_label,
   company,
 
-  IF(
-    capacity_classification =
-      'Exceeds single-driver legal capacity (multi-driver and/or overwork — indeterminate)',
-    1,
-    0
-  ) AS days_exceeding_single_driver_capacity,
+  IF(exceeds_single_driver_capacity, 1, 0)
+    AS days_exceeding_single_driver_capacity,
 
   active_hours AS total_active_hours,
   active_hours AS max_daily_active_hours,
@@ -42,7 +38,7 @@ SELECT
   max_concurrent_trips,
   implausible_records_excluded,
 
-  capacity_classification,
+  exceeds_single_driver_capacity,
   day_night_flag
 
 FROM ${ref("vehicle_activity_day")}

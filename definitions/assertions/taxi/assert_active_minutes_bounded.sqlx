@@ -6,14 +6,14 @@ config {
 -- 1. active_minutes within [0, 1440] (a day has at most 1440 minutes).
 -- 2. active time never exceeds elapsed span first→last activity.
 -- 3. Grain is exactly one row per taxi_id × activity_date.
--- 4. capacity_classification is never NULL.
+-- 4. exceeds_single_driver_capacity is never NULL.
 
 SELECT *
 FROM ${ref("vehicle_activity_day")}
 WHERE active_minutes < 0
    OR active_minutes > 1440
    OR active_minutes > elapsed_first_to_last_minutes
-   OR capacity_classification IS NULL
+   OR exceeds_single_driver_capacity IS NULL
    OR taxi_id IS NULL
    OR activity_date IS NULL
 

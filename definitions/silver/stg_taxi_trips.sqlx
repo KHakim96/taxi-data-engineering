@@ -38,10 +38,8 @@ SELECT
   trip_start_datetime,
   trip_end_datetime,
 
-  -- Exact end reconstructed from trip_seconds in Chicago-local wall-clock time.
-  -- Source timestamps are rounded to the nearest 15 minutes (Chicago Data Portal),
-  -- so interval math in Gold uses this exact reconstruction, not trip_end_datetime.
-  -- Wall-clock arithmetic: DST transition days are 23/25 hours (documented limitation).
+-- Reconstruct trip end from start time and trip duration.
+
   DATETIME_ADD(
     trip_start_datetime,
     INTERVAL trip_seconds SECOND
@@ -133,7 +131,7 @@ SELECT
 
 
   /*
-    Duration plausibility flags (forensic review 2026-08-15).
+    Duration anomaly flags (forensic review 2026-08-15).
 
     Records are flagged, never deleted, so lineage is preserved.
     Evidence (Bronze profiling): 98.9% of >12h records have implied
@@ -154,7 +152,7 @@ SELECT
       AND SAFE_DIVIDE(trip_miles, trip_seconds / 3600.0) < 3
       THEN TRUE
     ELSE FALSE
-  END AS duration_plausibility_flag,
+  END AS duration_anomaly_flag,
 
   CASE
     WHEN trip_seconds >= 7200
@@ -165,7 +163,7 @@ SELECT
     WHEN trip_seconds > 43200
       THEN 'LONG_TRIP'
     ELSE NULL
-  END AS duration_plausibility_reason,
+  END AS duration_anomaly_reason,
 
   pickup_census_tract,
   dropoff_census_tract,
@@ -181,23 +179,6 @@ SELECT
   dropoff_longitude,
   dropoff_location
 
--- FROM localized
-
--- WHERE trip_start_timestamp IS NOT NULL
---  AND trip_end_timestamp IS NOT NULL
---  AND trip_end_timestamp >= trip_start_timestamp
-
-  -- Remove corrupted records
-  -- AND trip_seconds IS NOT NULL
-
-  -- Remove impossible trips (>24 hours)
-  -- AND TIMESTAMP_DIFF(
-        -- trip_end_timestamp,
-        -- trip_start_timestamp,
-        -- HOUR
-      -- ) <= 24
-
-
 FROM localized
 
 WHERE trip_start_timestamp IS NOT NULL
@@ -209,6 +190,6 @@ AND trip_seconds IS NOT NULL
 
 -- NOTE (forensic review 2026-08-15):
 -- The previous hard delete "AND trip_seconds <= 43200" was removed.
--- Records >12h are retained and flagged via duration_plausibility_reason
+-- Records >12h are retained and flagged via duration_anomaly_reason
 -- ('IMPLAUSIBLE_SPEED' or 'LONG_TRIP'). Gold trusted analytics exclude
 -- IMPLAUSIBLE_SPEED explicitly; Silver preserves full lineage.
