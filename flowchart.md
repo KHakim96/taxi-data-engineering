@@ -47,7 +47,6 @@ flowchart LR
         end
         subgraph GANA["ANALYTICAL MODELS"]
             VAD["vehicle_activity_day<br/>taxi x day active-time model"]
-            PG["pickup_geospatial<br/>pickup metrics per area x day"]
         end
         subgraph GREP["REPORT MARTS"]
             EXEC["executive_dashboard<br/>executive OBT for Looker"]
@@ -90,10 +89,6 @@ flowchart LR
     STG_TAXI --> VAD
     STG_WX --> DW
     STG_HOL --> DH
-    STG_TAXI --> PG
-    STG_WX --> PG
-    STG_HOL --> PG
-    DCA --> PG
 
     %% ---- gold internal ----
     FTT --> FDM
@@ -121,7 +116,6 @@ flowchart LR
     HWI --> LK
     OVW --> LK
     FCD --> LK
-    PG --> LK
 
     %% ================= STYLING =================
     classDef src fill:#e8eaed,stroke:#5f6368,color:#202124
@@ -136,7 +130,7 @@ flowchart LR
     class SRC_TAXI,SRC_WX,SRC_HOL,ING_WX,ING_HOL src
     class RAW_TAXI,RAW_WX,RAW_HOL bronze
     class STG_TAXI,STG_WX,STG_HOL silver
-    class DW,DH,DCA,FTT,FDM,VAD,PG gold
+    class DW,DH,DCA,FTT,FDM,VAD gold
     class EXEC,BI2,TE,HWI,OVW,FCD report
     class MLP,MPU,MP ml
     class LK bi
