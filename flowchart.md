@@ -56,8 +56,6 @@ flowchart LR
             HWI["holiday_weather_impact<br/>holiday vs weekday vs weekend"]
             OVW["overworkers<br/>vehicle-day utilization"]
             FCD["forecast_dashboard<br/>actuals + ML predictions"]
-            BI1["business_insight_1<br/>daily ops KPIs - no consumer yet"]
-            FE["forecast_features<br/>daily ML features - no consumer yet"]
         end
     end
 
@@ -105,10 +103,8 @@ flowchart LR
     DW --> EXEC
     DH --> EXEC
     DCA --> EXEC
-    FTT --> BI1
     FTT --> BI2
     FTT --> TE
-    FTT --> FE
     VAD --> OVW
     FDM --> HWI
     FDM --> FCD
@@ -141,7 +137,7 @@ flowchart LR
     class RAW_TAXI,RAW_WX,RAW_HOL bronze
     class STG_TAXI,STG_WX,STG_HOL silver
     class DW,DH,DCA,FTT,FDM,VAD,PG gold
-    class EXEC,BI1,BI2,TE,HWI,OVW,FCD,FE report
+    class EXEC,BI2,TE,HWI,OVW,FCD report
     class MLP,MPU,MP ml
     class LK bi
     class DQ_TAXI,DQ_VEH,DQ_WX,DQ_HOL gate
