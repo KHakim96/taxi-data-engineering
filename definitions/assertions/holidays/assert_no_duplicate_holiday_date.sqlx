@@ -2,10 +2,10 @@ config {
   type: "assertion"
 }
 
+-- one row per holiday_date.
 SELECT
   holiday_date,
-  holiday_name,
   COUNT(*) AS duplicate_count
 FROM ${ref("stg_holidays")}
-GROUP BY holiday_date, holiday_name
+GROUP BY holiday_date
 HAVING COUNT(*) > 1

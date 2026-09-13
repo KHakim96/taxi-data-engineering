@@ -19,6 +19,10 @@ for year in years:
     holidays = response.json()
 
     for holiday in holidays:
+        if not holiday.get("global"):
+            # Skip state-specific holidays (e.g. Truman Day, Good Friday):
+            # only federal (global) holidays are relevant here.
+            continue
         all_holidays.append(
             {
                 "holiday_date": holiday["date"],
