@@ -1,0 +1,66 @@
+name: Dataform CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Deploy Dataform to BigQuery
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/612020929545/locations/global/workloadIdentityPools/github/providers/github-provider
+          service_account: github-dataform-deployer@taxi-data-engineering-504801.iam.gserviceaccount.com
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Create Dataform compilation result
+        run: |
+          RESPONSE=$(curl -sS -X POST \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            -d '{"gitCommitish":"main"}' \
+            "https://dataform.googleapis.com/v1/projects/taxi-data-engineering-504801/locations/us-central1/repositories/taxi-data-engineering/compilationResults")
+
+          echo "$RESPONSE"
+
+          COMPILATION_RESULT=$(echo "$RESPONSE" | jq -r '.name')
+
+          if [ -z "$COMPILATION_RESULT" ] || [ "$COMPILATION_RESULT" = "null" ]; then
+            echo "Failed to create Dataform compilation result."
+            exit 1
+          fi
+
+          echo "COMPILATION_RESULT=$COMPILATION_RESULT" >> "$GITHUB_ENV"
+
+      - name: Invoke Dataform workflow
+        run: |
+          RESPONSE=$(curl -sS -X POST \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            -d "{\"compilationResult\":\"$COMPILATION_RESULT\"}" \
+            "https://dataform.googleapis.com/v1/projects/taxi-data-engineering-504801/locations/us-central1/repositories/taxi-data-engineering/workflowInvocations")
+
+          echo "$RESPONSE"
+
+          WORKFLOW_NAME=$(echo "$RESPONSE" | jq -r '.name')
+
+          if [ -z "$WORKFLOW_NAME" ] || [ "$WORKFLOW_NAME" = "null" ]; then
+            echo "Failed to invoke Dataform workflow."
+            exit 1
+          fi
+
+          echo "Dataform workflow started: $WORKFLOW_NAME"
