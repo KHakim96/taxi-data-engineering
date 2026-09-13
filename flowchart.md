@@ -48,7 +48,6 @@ flowchart LR
         end
         subgraph GREP["REPORT MARTS"]
             EXEC["executive_dashboard<br/>executive OBT for Looker"]
-            BI2["business_insight_2<br/>taxi company performance"]
             TE["tip_earners<br/>daily tips per taxi"]
             HWI["holiday_weather_impact<br/>holiday vs weekday vs weekend"]
             OVW["overworkers<br/>vehicle-day utilization"]
@@ -96,7 +95,6 @@ flowchart LR
     DW --> EXEC
     DH --> EXEC
     DCA --> EXEC
-    FTT --> BI2
     FTT --> TE
     VAD --> OVW
     FDM --> HWI
@@ -109,7 +107,6 @@ flowchart LR
 
     %% ---- gold reports -> looker ----
     EXEC --> LK
-    BI2 --> LK
     TE --> LK
     HWI --> LK
     OVW --> LK
@@ -129,7 +126,7 @@ flowchart LR
     class RAW_TAXI,RAW_WX,RAW_HOL bronze
     class STG_TAXI,STG_WX,STG_HOL silver
     class DW,DH,DCA,FTT,FDM,VAD gold
-    class EXEC,BI2,TE,HWI,OVW,FCD report
+    class EXEC,TE,HWI,OVW,FCD report
     class MLP,MPU,MP ml
     class LK bi
     class DQ_TAXI,DQ_VEH,DQ_WX,DQ_HOL gate

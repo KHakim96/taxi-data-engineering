@@ -29,4 +29,5 @@ pnpm-lock.yaml
 definitions/gold/shift_summary.sqlx
 definitions/gold/dim_date.sqlx
 definitions/gold/pickup_geospatial.sqlx
+definitions/gold/reports/business_insight_2.sqlx
 bigquery/profiling/research/
