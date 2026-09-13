@@ -2,20 +2,8 @@ config {
   type: "table",
   schema: "gold",
   name: "overworkers",
-  description: "Vehicle-Day Utilization report (name kept for Looker data-source compatibility). Aggregates gold.fact_vehicle_activity_day at one row per taxi per activity date. All measures are VEHICLE-level utilization — this is NOT driver overtime: taxi_id is a medallion-level identifier, multiple drivers may share one vehicle, and no driver identity, driver hours, or rest compliance is claimed. In Looker, sum days_exceeding_single_driver_capacity over a date range to count vehicle-days beyond single-driver legal capacity (>12 active hours, the Chicago chauffeur limit per MCC 9-112-250)."
+  description: "Daily vehicle utilization per taxi. Counts days exceeding 12h",
 }
-
-/*
-  Grain: taxi_id × activity_date (per-day rows; Looker aggregates
-  across the user-selected date range).
-
-  Field contract:
-  - days_exceeding_single_driver_capacity : 0/1 per day   -> SUM in Looker
-  - total_active_hours                    : daily hours   -> SUM in Looker
-  - max_daily_active_hours                : daily hours   -> MAX in Looker
-  - avg_daily_active_hours                : daily hours   -> AVG in Looker
-  - total_trip_miles / trip_count         : daily totals  -> SUM in Looker
-*/
 
 SELECT
   activity_date,
@@ -24,8 +12,10 @@ SELECT
   taxi_label,
   company,
 
-  IF(exceeds_single_driver_capacity, 1, 0)
-    AS days_exceeding_single_driver_capacity,
+  CASE
+    WHEN exceeds_single_driver_capacity THEN 1
+    ELSE 0
+  END AS days_exceeding_single_driver_capacity,
 
   active_hours AS total_active_hours,
   active_hours AS max_daily_active_hours,

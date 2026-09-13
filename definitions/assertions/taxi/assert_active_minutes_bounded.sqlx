@@ -2,11 +2,8 @@ config {
   type: "assertion"
 }
 
--- Vehicle-Day Utilization invariants (forensic review 2026-08-15):
--- 1. active_minutes within [0, 1440] (a day has at most 1440 minutes).
--- 2. active time never exceeds elapsed span first→last activity.
--- 3. Grain is exactly one row per taxi_id × activity_date.
--- 4. exceeds_single_driver_capacity is never NULL.
+-- Invariants: active_minutes in [0, 1440], active <= elapsed span,
+-- one row per taxi_id x activity_date, capacity flag never NULL.
 
 SELECT *
 FROM ${ref("fact_vehicle_activity_day")}

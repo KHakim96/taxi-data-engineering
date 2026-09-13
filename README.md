@@ -196,7 +196,7 @@ The 8-hour-break requirement was also considered, but the dataset does not conta
 Do you think the public holidays in the US had an impact on the increase/decrease in trips?
 
 **Answer:**  
-Yes. Public holidays were associated with a clear decrease in taxi trips in 2013. Holiday days averaged about **47.6K trips per day**, compared with **73.3K on weekdays**, which is roughly **35% fewer trips**. Holiday revenue was also lower at about **$663K per day**, compared with approximately **$981K on weekdays**.
+Yes. Public holidays were associated with a clear decrease in taxi trips in 2013. Holiday days averaged about **41.97K trips per day**, compared with **73.16K on weekdays**, which is roughly **42.6% fewer trips**. Holiday revenue was also lower at about **$600K per day**, compared with approximately **$978K on weekdays**.
 
 ### Dashboard
 
@@ -244,7 +244,7 @@ Forecasts can help planners anticipate high- and low-demand days and adjust driv
 
 - **Tip earners:** Higher trip volume does not necessarily mean higher tips or revenue; higher-value trips can produce more revenue and tips.
 - **Overworkers:** The strongest evidence available from the dataset is repeated vehicle-days exceeding 12 active hours.
-- **Public holidays:** Holiday demand was around **35% lower than weekday demand in 2013**.
+- **Public holidays:** Holiday demand was around **42.6% lower than weekday demand in 2013**.
 - **Seasonality:** Taxi demand shows recurring periods of higher activity that can support capacity planning.
 - **Forecasting:** Machine learning can help anticipate future demand and support operational planning.
 

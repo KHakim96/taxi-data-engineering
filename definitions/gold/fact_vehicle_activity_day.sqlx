@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "gold",
   name: "fact_vehicle_activity_day",
-  description: "Vehicle-day utilization: one row per taxi_id per Chicago-local date. Active time is the union of merged non-overlapping trip intervals, clipped at local midnight - never SUM(trip_seconds), which double-counts overlapping trips. Duration-anomalous records are excluded and counted. Over 12 active hours exceeds the single-chauffeur legal limit (MCC 9-112-250); taxi_id is a medallion that multiple drivers can share, so this is vehicle capacity, not driver overtime."
+  description: "Daily taxi activity and trip summary.",
 }
 
 WITH trusted AS (
@@ -18,7 +18,7 @@ WITH trusted AS (
   WHERE taxi_id IS NOT NULL
     AND trip_start_datetime IS NOT NULL
     AND trip_end_datetime_exact IS NOT NULL
-    AND NOT duration_anomaly_flag
+    AND duration_anomaly_flag = FALSE
 ),
 
 -- Merge overlapping trips into one timeline per taxi:
@@ -59,7 +59,6 @@ blocks AS (
 ),
 
 -- Split blocks at midnight so each calendar day owns its own activity.
--- Wall-clock boundaries: DST days are 23/25 hours (accepted limitation).
 sliced AS (
 
   SELECT
@@ -69,10 +68,10 @@ sliced AS (
     LEAST(end_t, DATETIME_ADD(DATETIME(DATE(start_t)), INTERVAL (n + 1) DAY)) AS slice_end,
     active_trips
   FROM blocks,
-  UNNEST(GENERATE_ARRAY(0, DATE_DIFF(DATE(end_t), DATE(start_t), DAY))) AS n
+  UNNEST(GENERATE_ARRAY(0, DATE_DIFF(DATE(end_t), DATE(start_t), DAY))) AS n -- generate 1 row per day
 ),
 
--- Drop zero-length slices (a trip ending exactly at midnight)
+-- Drop start time = the end time
 day_slices AS (
   SELECT * FROM sliced WHERE slice_start < slice_end
 ),
@@ -86,9 +85,9 @@ per_day AS (
     SUM(DATETIME_DIFF(slice_end, slice_start, SECOND)) AS active_seconds,
     MIN(slice_start) AS first_active,
     MAX(slice_end) AS last_active,
-    MAX(active_trips) AS max_concurrent_trips,
+    MAX(active_trips) AS max_concurrent_trips, -- find overlaps trip
 
-    -- Overlap of activity with 05:00-17:00, for the day/night flag
+    -- for day/night flag (day_night_flag query)
     SUM(
       GREATEST(
         0,
@@ -123,7 +122,7 @@ excluded_per_day AS (
   FROM ${ref("stg_taxi_trips")}
   WHERE taxi_id IS NOT NULL
     AND trip_start_datetime IS NOT NULL
-    AND duration_anomaly_flag
+    AND duration_anomaly_flag = TRUE
   GROUP BY taxi_id, activity_date
 ),
 
@@ -156,7 +155,7 @@ SELECT
     2
   ) AS elapsed_first_to_last_minutes,
 
-  -- 12h = Chicago chauffeur limit (MCC 9-112-250)
+  -- 12h = Chicago limit by law (based on web research)
   IFNULL(p.active_seconds, 0) > 43200 AS exceeds_single_driver_capacity,
 
   CASE
@@ -172,7 +171,8 @@ LEFT JOIN trips_per_day t
   ON t.taxi_id = d.taxi_id AND t.activity_date = d.activity_date
 LEFT JOIN excluded_per_day e
   ON e.taxi_id = d.taxi_id AND e.activity_date = d.activity_date
--- Labels from full Silver so excluded-only taxi-days still get labeled
+
+-- select taxi label n company
 LEFT JOIN (
   SELECT taxi_id, ANY_VALUE(taxi_label) AS taxi_label, ANY_VALUE(company) AS company
   FROM ${ref("stg_taxi_trips")}

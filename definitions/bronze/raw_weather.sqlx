@@ -1,9 +1,6 @@
 config {
-  type: "table",
+  type: "declaration",
   schema: "bronze",
   name: "raw_weather",
-  description: "Raw weather data loaded from external API"
+  description: "Raw daily weather data loaded from the Open-Meteo archive API by ingestion/weather/fetch_weather.py"
 }
-
-SELECT *
-FROM `taxi-data-engineering-504801.bronze.raw_weather`

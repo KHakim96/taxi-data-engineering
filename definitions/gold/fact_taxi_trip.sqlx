@@ -40,16 +40,4 @@ SELECT
 FROM ${ref("stg_taxi_trips")}
 
 WHERE fare_anomaly_flag = FALSE
-
--- Keep only non-anomalous trips for trusted Gold analytics.
--- Anomalies are flagged and retained in Silver for traceability.
-
--- Trusted-data exclusion (forensic review 2026-08-15):
--- duration-anomalous records (>= 2h at < 3 mph, meter/device
--- artifacts) are excluded from the trusted fact. Silver retains
--- them with duration_anomaly_reason = 'IMPLAUSIBLE_SPEED'
--- (the only case where duration_anomaly_flag = TRUE).
--- Written flag-based for NULL safety: rows with NULL reason
--- (normal records) must pass, which a bare
--- "reason != 'IMPLAUSIBLE_SPEED'" comparison would not do.
 AND NOT COALESCE(duration_anomaly_flag, FALSE)

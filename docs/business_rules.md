@@ -1,6 +1,5 @@
 # Business Rules — Vehicle-Day Utilization
 
-Approved: 2026-08-16 (forensic review of the former shift/overworker logic).
 Applies to: `silver.stg_taxi_trips` → `gold.fact_vehicle_activity_day` → `gold.overworkers`.
 
 ---

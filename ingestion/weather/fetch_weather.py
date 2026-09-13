@@ -25,7 +25,7 @@ url = (
     "precipitation_sum,"
     "snowfall_sum,"
     "wind_speed_10m_max"
-    "&timezone=UTC"
+    "&timezone=America/Chicago"
 )
 
 response = requests.get(url)

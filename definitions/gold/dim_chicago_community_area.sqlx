@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "gold",
   name: "dim_chicago_community_area",
-  description: "Dimensional mapping of Chicago Community Area IDs to their official names."
+  description: "mapping of Chicago Community Area ID to their official names."
 }
 
 SELECT * FROM UNNEST([
