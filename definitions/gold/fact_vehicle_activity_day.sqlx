@@ -1,7 +1,7 @@
 config {
   type: "table",
   schema: "gold",
-  name: "vehicle_activity_day",
+  name: "fact_vehicle_activity_day",
   description: "Vehicle-day utilization: one row per taxi_id per Chicago-local date. Active time is the union of merged non-overlapping trip intervals, clipped at local midnight - never SUM(trip_seconds), which double-counts overlapping trips. Duration-anomalous records are excluded and counted. Over 12 active hours exceeds the single-chauffeur legal limit (MCC 9-112-250); taxi_id is a medallion that multiple drivers can share, so this is vehicle capacity, not driver overtime."
 }
 

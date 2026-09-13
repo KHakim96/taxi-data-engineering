@@ -9,7 +9,7 @@ config {
 -- 4. exceeds_single_driver_capacity is never NULL.
 
 SELECT *
-FROM ${ref("vehicle_activity_day")}
+FROM ${ref("fact_vehicle_activity_day")}
 WHERE active_minutes < 0
    OR active_minutes > 1440
    OR active_minutes > elapsed_first_to_last_minutes
@@ -28,6 +28,6 @@ FROM (
       COUNT(*) OVER (
         PARTITION BY taxi_id, activity_date
       ) AS row_count
-    FROM ${ref("vehicle_activity_day")}
+    FROM ${ref("fact_vehicle_activity_day")}
   )
 WHERE row_count > 1

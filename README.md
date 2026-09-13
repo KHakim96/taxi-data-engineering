@@ -52,7 +52,7 @@ flowchart LR
     %% ================= DATA QUALITY GATE =================
     subgraph DQ["DATA QUALITY GATE - 14 DATAFORM ASSERTIONS"]
         DQ_TAXI["taxi x6 on stg_taxi_trips<br/>unique key - positives - valid timestamps"]
-        DQ_VEH["vehicle x1 on vehicle_activity_day<br/>active-minutes bounded"]
+        DQ_VEH["vehicle x1 on fact_vehicle_activity_day<br/>active-minutes bounded"]
         DQ_WX["weather x5 on stg_weather<br/>1 row/date - temps - precip >= 0"]
         DQ_HOL["holidays x2 on stg_holidays<br/>1 row/date - date not null"]
     end
@@ -67,9 +67,7 @@ flowchart LR
         subgraph GFCT["FACTS"]
             FTT["fact_taxi_trip<br/>trip-grain trusted fact"]
             FDM["fact_daily_demand<br/>1 row/day - trips x wx x holiday"]
-        end
-        subgraph GANA["ANALYTICAL MODELS"]
-            VAD["vehicle_activity_day<br/>taxi x day active-time model"]
+            VAD["fact_vehicle_activity_day<br/>vehicle-day utilization snapshot"]
         end
         subgraph GREP["REPORT MARTS"]
             EXEC["executive_dashboard<br/>executive OBT for Looker"]
