@@ -1,6 +1,7 @@
 # Chicago Taxi Data Engineering & Analytics
 
-This project builds an end-to-end data engineering and analytics pipeline using Chicago Taxi Trips data. The pipeline covers data ingestion, Bronze/Silver/Gold transformation, data quality checks, analytics modelling, forecasting, and Looker Studio dashboards.
+This project builds an end-to-end data engineering and analytics pipeline using Chicago Taxi Trips data. It covers data ingestion, Bronze/Silver/Gold transformations, data quality checks, analytics modelling, forecasting, CI/CD with GitHub Actions, and Looker Studio dashboards.
+
 
 ## Dashboard
 
@@ -21,138 +22,149 @@ This project follows a **Medallion Architecture**:
 - **Looker Studio** — Business dashboards and reporting
 
 ```mermaid
-flowchart LR
-    %% ================= EXTERNAL SOURCES =================
+flowchart TB
+
+    %% ========== CONTROL PLANE ==========
+    subgraph OPS["ORCHESTRATION · GitHub Actions"]
+        direction LR
+        CI["CI · on PR + push<br/>dataform compile"]
+        CD["CD · on push to main<br/>invoke workflow"]
+    end
+
+    DFM["DATAFORM<br/>resolves ref DAG · runs SQL in BigQuery"]
+
+    %% ========== DATA PLANE ==========
     subgraph SRC["EXTERNAL SOURCES"]
-        SRC_TAXI["BigQuery public data<br/>chicago_taxi_trips 2013-2023"]
-        SRC_WX["Open-Meteo Archive API<br/>Chicago daily weather"]
-        SRC_HOL["Nager.Date API<br/>US public holidays"]
+        direction LR
+        S1["Chicago Taxi Trips<br/>BigQuery public dataset"]
+        S2["Open-Meteo API"]
+        S3["Nager.Date API"]
     end
 
-    %% ================= INGESTION =================
-    subgraph ING["PYTHON INGESTION"]
-        ING_WX["fetch_weather.py<br/>WRITE_TRUNCATE load"]
-        ING_HOL["fetch_holidays.py<br/>WRITE_TRUNCATE load"]
+    subgraph ING["INGESTION"]
+        direction LR
+        I1["Dataform<br/>SELECT * inside BigQuery"]
+        I2["fetch_weather.py<br/>pandas → BQ load job"]
+        I3["fetch_holidays.py<br/>pandas → BQ load job"]
     end
 
-    %% ================= BRONZE =================
-    subgraph BRZ["BRONZE - RAW / INGESTED"]
-        RAW_TAXI["raw_taxi_trips<br/>raw trip landing"]
-        RAW_WX["raw_weather<br/>raw daily weather"]
-        RAW_HOL["raw_holidays<br/>raw holiday rows"]
+    subgraph BRZ["BRONZE · BigQuery"]
+        direction LR
+        B1["raw_taxi_trips"]
+        B2["raw_weather"]
+        B3["raw_holidays"]
     end
 
-    %% ================= SILVER =================
-    subgraph SIL["SILVER - CLEANED / STANDARDIZED"]
-        STG_TAXI["stg_taxi_trips<br/>dedup - Chicago TZ - plausibility flags"]
-        STG_WX["stg_weather<br/>typed - 1 row per date"]
-        STG_HOL["stg_holidays<br/>distinct - is_holiday flag"]
+    subgraph SLV["SILVER · BigQuery"]
+        direction LR
+        V1["stg_taxi_trips"]
+        V2["stg_weather"]
+        V3["stg_holidays"]
     end
 
-    %% ================= DATA QUALITY GATE =================
-    subgraph DQ["DATA QUALITY GATE - 14 DATAFORM ASSERTIONS"]
-        DQ_TAXI["taxi x6 on stg_taxi_trips<br/>unique key - positives - valid timestamps"]
-        DQ_VEH["vehicle x1 on fact_vehicle_activity_day<br/>active-minutes bounded"]
-        DQ_WX["weather x5 on stg_weather<br/>1 row/date - temps - precip >= 0"]
-        DQ_HOL["holidays x2 on stg_holidays<br/>1 row/date - date not null"]
+    subgraph GLD["GOLD · BigQuery"]
+        direction LR
+        GTRIP["fact_taxi_trip"]
+        GVEH["fact_vehicle_activity_day"]
+        GDIM["Dimensions<br/>weather · holiday · community area"]
+        GDAY["fact_daily_demand"]
     end
 
-    %% ================= GOLD (ONE CONTAINER) =================
-    subgraph GOLD["GOLD - BUSINESS-READY / ANALYTICS"]
-        subgraph GDIM["DIMENSIONS"]
-            DW["dim_weather<br/>conformed daily weather"]
-            DH["dim_holiday<br/>conformed holidays"]
-            DCA["dim_chicago_community_area<br/>77 areas - hardcoded"]
-        end
-        subgraph GFCT["FACTS"]
-            FTT["fact_taxi_trip<br/>trip-grain trusted fact"]
-            FDM["fact_daily_demand<br/>1 row/day - trips x wx x holiday"]
-            VAD["fact_vehicle_activity_day<br/>vehicle-day utilization snapshot"]
-        end
-        subgraph GREP["REPORT MARTS"]
-            EXEC["executive_dashboard<br/>executive OBT for Looker"]
-            TE["tip_earners<br/>daily tips per taxi"]
-            HWI["holiday_weather_impact<br/>holiday vs weekday vs weekend"]
-            OVW["overworkers<br/>vehicle-day utilization"]
-            FCD["forecast_dashboard<br/>actuals + ML predictions"]
-        end
+    subgraph MRT["REPORT MARTS · BigQuery gold"]
+        direction LR
+        R1["executive_dashboard"]
+        R2["tip_earners"]
+        R3["overworkers"]
+        R4["holiday_weather_impact"]
+        R5["forecast_dashboard"]
     end
 
-    %% ================= ML =================
-    subgraph ML["ML - XGBOOST FORECASTING (PYTHON)"]
-        MLP["train.py / predict.py / evaluate.py<br/>lag_1 - lag_7 - rolling_7d features<br/>train < 2023 - predict 2023"]
-        MPU["upload_predictions.py"]
-        MP["ml.model_predictions<br/>declared in Dataform"]
+    subgraph BIL["BI"]
+        LK["Looker Studio"]
     end
 
-    %% ================= LOOKER =================
-    subgraph LKR["LOOKER STUDIO - BI"]
-        LK["Looker Studio dashboards<br/>Executive - Taxi Performance<br/>Demand Factors - Overworkers<br/>Forecast"]
+    %% ========== SIDE: VALIDATION ==========
+    subgraph DQ["DATA QUALITY · validation only"]
+        QA["14 Dataform assertions<br/>13 on Silver · 1 on Gold<br/>→ dataform_assertions"]
     end
 
-    %% ---- sources -> ingestion -> bronze ----
-    SRC_TAXI -->|"dataform query - no script"| RAW_TAXI
-    SRC_WX --> ING_WX --> RAW_WX
-    SRC_HOL --> ING_HOL --> RAW_HOL
+    %% ========== SIDE: ML ==========
+    subgraph MLX["ML · local Python / XGBoost"]
+        direction LR
+        T1["train.py<br/>pre-2023"]
+        T2["predict.py<br/>2023"]
+        T3["predictions.csv<br/>local artifact"]
+        T4["upload_predictions.py"]
+    end
 
-    %% ---- bronze -> silver ----
-    RAW_TAXI --> STG_TAXI
-    RAW_WX --> STG_WX
-    RAW_HOL --> STG_HOL
+    MLT["ml.model_predictions<br/>BigQuery"]
 
-    %% ---- quality gate (control, not data) ----
-    SIL -.->|"validated by"| DQ
-    DQ -.->|"fail blocks build"| GOLD
+    %% ---- main data flow: three parallel lanes ----
+    S1 --> I1 --> B1 --> V1
+    S2 --> I2 --> B2 --> V2
+    S3 --> I3 --> B3 --> V3
 
-    %% ---- silver -> gold (data lineage) ----
-    STG_TAXI --> FTT
-    STG_TAXI --> VAD
-    STG_WX --> DW
-    STG_HOL --> DH
+    V1 --> GTRIP
+    V1 --> GVEH
+    V2 --> GDIM
+    V3 --> GDIM
 
-    %% ---- gold internal ----
-    FTT --> FDM
-    DW --> FDM
-    DH --> FDM
-    FTT --> EXEC
-    DW --> EXEC
-    DH --> EXEC
-    DCA --> EXEC
-    FTT --> TE
-    VAD --> OVW
-    FDM --> HWI
-    FDM --> FCD
+    GTRIP --> GDAY
+    GDIM --> GDAY
 
-    %% ---- ML loop ----
-    FDM -->|"direct BQ read"| MLP
-    MLP --> MPU --> MP
-    MP -->|"ref() declaration"| FCD
+    GTRIP --> R1
+    GDIM --> R1
+    GTRIP --> R2
+    GVEH --> R3
+    GDAY --> R4
+    GDAY --> R5
 
-    %% ---- gold reports -> looker ----
-    EXEC --> LK
-    TE --> LK
-    HWI --> LK
-    OVW --> LK
-    FCD --> LK
+    MRT --> BIL
 
-    %% ================= STYLING =================
-    classDef src fill:#e8eaed,stroke:#5f6368,color:#202124
+    %% ---- ML side branch ----
+    GDAY -.->|"BQ read"| T1
+    GDAY -.->|"BQ read"| T2
+    T1 -->|"xgboost.pkl"| T2 --> T3 --> T4 --> MLT
+    MLT -.->|"declared source"| R5
+
+    %% ---- validation, not a gate ----
+    SLV -.->|"validated by"| QA
+    GVEH -.->|"validated by"| QA
+
+    %% ---- control flow ----
+    CI -.->|"validates project"| DFM
+    CD -.->|"invokes workflow"| DFM
+    DFM -.->|"executes Bronze → Marts DAG"| BRZ
+
+    %% ========== STYLING ==========
+    classDef src    fill:#e8eaed,stroke:#5f6368,color:#202124
+    classDef ingest fill:#fff3e0,stroke:#e8710a,color:#202124
     classDef bronze fill:#fce8e6,stroke:#c5221f,color:#202124
     classDef silver fill:#e8f0fe,stroke:#1a73e8,color:#202124
-    classDef gold fill:#fef7e0,stroke:#f9ab00,color:#202124
-    classDef report fill:#e6f4ea,stroke:#137333,color:#202124
-    classDef ml fill:#f3e8fd,stroke:#8430ce,color:#202124
-    classDef bi fill:#0047ab,stroke:#0047ab,color:#ffffff
-    classDef gate fill:#ffffff,stroke:#d93025,color:#d93025,stroke-dasharray:3 3
+    classDef gold   fill:#fef7e0,stroke:#f9ab00,color:#202124
+    classDef mart   fill:#e6f4ea,stroke:#137333,color:#202124
+    classDef ml     fill:#f3e8fd,stroke:#8430ce,color:#202124
+    classDef bq     fill:#e1f5fe,stroke:#0277bd,color:#202124
+    classDef bi     fill:#0047ab,stroke:#0047ab,color:#ffffff
+    classDef gate   fill:#ffffff,stroke:#d93025,color:#d93025,stroke-dasharray:3 3
+    classDef ops    fill:#ffffff,stroke:#5f6368,color:#5f6368,stroke-dasharray:3 3
+    classDef engine fill:#ede7f6,stroke:#4527a0,color:#202124
 
-    class SRC_TAXI,SRC_WX,SRC_HOL,ING_WX,ING_HOL src
-    class RAW_TAXI,RAW_WX,RAW_HOL bronze
-    class STG_TAXI,STG_WX,STG_HOL silver
-    class DW,DH,DCA,FTT,FDM,VAD gold
-    class EXEC,TE,HWI,OVW,FCD report
-    class MLP,MPU,MP ml
+    class S1,S2,S3 src
+    class I1,I2,I3 ingest
+    class B1,B2,B3 bronze
+    class V1,V2,V3 silver
+    class GTRIP,GVEH,GDIM,GDAY gold
+    class R1,R2,R3,R4,R5 mart
+    class T1,T2,T3,T4 ml
+    class MLT bq
     class LK bi
-    class DQ_TAXI,DQ_VEH,DQ_WX,DQ_HOL gate
+    class QA gate
+    class CI,CD ops
+    class DFM engine
+
+
+
 
 ```
 
@@ -166,7 +178,7 @@ flowchart LR
 Who are the top 100 "tip earners", the taxi IDs that earn more money than others for the last 3 months?
 
 **Answer:**  
-The Top 100 tip earners are ranked by total tips earned over the last three months. More trips do not always mean higher tips or revenue because some taxis earn more per trip. A taxi with fewer trips can still generate higher total revenue and tips if its average fare and tip per trip are higher.
+Can refer Snapshot on Tip Leaderboard panel. Top 100 tip earners are ranked by total tips earned over the last three months. More trips do not always mean higher tips or revenue because some taxis earn more per trip. A taxi with fewer trips can still generate higher total revenue and tips if its average fare and tip per trip are higher.
 
 ### Dashboard
 
@@ -180,9 +192,9 @@ The Top 100 tip earners are ranked by total tips earned over the last three mont
 Who are the top 100 "overworkers", taxi IDs that work more hours than others without taking at least 8 hours break and regularly have a long shift? When answering, make sure to consider the shifts that taxi drivers might typically work.
 
 **Answer:**  
-The top 100 "overworkers" are the 100 taxi IDs with the most calendar days where the vehicle recorded more than 12 active hours. For each taxi-day, overlapping trips were merged so the same time was not counted twice, and clearly implausible trip-duration records were excluded from the trusted activity calculation. Vehicles were then ranked by the number of days above 12 active hours, with maximum daily active hours and average hours on flagged days used to show the severity and repetition of extended activity.
+Top 100 "overworkers" are the 100 taxi IDs with the most calendar days where the vehicle recorded more than 12 active hours. For each taxi-day, overlapping trips were merged so the same time was not counted twice, and clearly bad trip-duration records were excluded from the trusted activity calculation. Vehicles were then ranked by the number of days above 12 active hours, with maximum daily active hours and average hours on flagged days used to show the severity and repetition of extended activity.
 
-The 8-hour-break requirement was also considered, but the dataset does not contain a driver ID. Therefore, an 8-hour gap in taxi activity cannot prove that a specific driver took an 8-hour break because the same vehicle may be shared by multiple drivers. The final ranking therefore identifies vehicles with repeated extended operation using 12 active hours as the single-driver capacity threshold.
+8h break requirement was also considered, but the dataset does not contain a driver ID. Therefore, an 8h gap in taxi activity cannot prove that a specific driver took an 8-hour break because the same vehicle may be shared by multiple drivers. The final ranking therefore identifies vehicles with repeated extended operation using 12 active hours as the single-driver capacity threshold.
 
 ### Dashboard
 
@@ -196,7 +208,7 @@ The 8-hour-break requirement was also considered, but the dataset does not conta
 Do you think the public holidays in the US had an impact on the increase/decrease in trips?
 
 **Answer:**  
-Yes. Public holidays were associated with a clear decrease in taxi trips in 2013. Holiday days averaged about **41.97K trips per day**, compared with **73.16K on weekdays**, which is roughly **42.6% fewer trips**. Holiday revenue was also lower at about **$600K per day**, compared with approximately **$978K on weekdays**.
+Yes. Public holidays were associated with lower taxi demand in January 2013. Holiday days averaged about **34.8K trips per day**, compared with **51K on weekdays**, which is roughly **32% fewer trips**. Average daily revenue was also lower on holidays, at about **$467K compared with $626K on weekdays.**
 
 ### Dashboard
 
@@ -206,23 +218,26 @@ Yes. Public holidays were associated with a clear decrease in taxi trips in 2013
 
 # Bonus Insights
 
-## 4. Recurring Mid-October Demand Spike
+## 4. How Taxi Demand Changed After the Pandemic
 
 ### Insight
 
-Daily taxi demand shows a recurring spike around **10–20 October** across multiple years, consistently higher than surrounding periods.
+Areas that recovered the most after pandemic were mainly airports and university area. O'Hare had the biggest increase, with taxi pickups rising 64.4%, while Garfield Ridge, which is mainly associated with Midway Airport, increased by 43.8%. Hyde Park also increased by 49.1%, likely supported by the University of Chicago and related activity.
+
+In contrast, business areas were much slower to recover. The Loop dropped by 54.4%, Near North Side by 45.6%, and Near West Side by 36.3%. One possible reason is the shift to working from home (WFH) during and after COVID. Remote and hybrid work became standard after covid, so fewer people needed to travel to offices every day, reducing some of the regular taxi demand around major business areas.
+
+This binus insight purposely did not include Jefferson Park, despite having a high percentage change in the comparison, because it is a residential, transit-oriented area. Its transit center connects the CTA Blue Line (trains), many CTA/Pace bus routes, and Metra (commuter), so residents have several public transport options for getting around.
 
 ### Business Value
 
-The operator can anticipate this recurring seasonal demand and increase driver availability and fleet capacity during this period to reduce unmet demand and improve service availability.
+Taxi operators can use this to decide where to place more or fewer vehicles. Areas such as airports can be given more coverage, while areas with weaker business-related demand may need less fleet capacity.
 
 ### Supporting Evidence
 
-- Daily demand trend across multiple years
-- Consistent demand increase around 10–20 October
-- Comparison against surrounding October dates
+- Comparison of taxi pickups between 2019 and 2023
+- Percentage change in taxi demand across different area types
 
-![Recurring Mid-October Demand Spike](docs/images/october_demand_spike.png)
+![post covid Demand trend](docs/images/post_covid.png)
 
 ---
 
@@ -237,16 +252,6 @@ The XGBoost model forecasts daily taxi demand using historical demand, calendar,
 Forecasts can help planners anticipate high- and low-demand days and adjust driver availability and fleet capacity before demand occurs.
 
 ![Demand Forecast](docs/images/demand_forecast.png)
-
----
-
-# Key Takeaways
-
-- **Tip earners:** Higher trip volume does not necessarily mean higher tips or revenue; higher-value trips can produce more revenue and tips.
-- **Overworkers:** The strongest evidence available from the dataset is repeated vehicle-days exceeding 12 active hours.
-- **Public holidays:** Holiday demand was around **42.6% lower than weekday demand in 2013**.
-- **Seasonality:** Taxi demand shows recurring periods of higher activity that can support capacity planning.
-- **Forecasting:** Machine learning can help anticipate future demand and support operational planning.
 
 ---
 
@@ -265,23 +270,54 @@ Forecasts can help planners anticipate high- and low-demand days and adjust driv
 
 ```text
 taxi-data-engineering/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       └── cd.yml
 ├── definitions/
 │   ├── bronze/
 │   ├── silver/
 │   ├── gold/
+│   │   └── reports/
+│   ├── sources/
 │   └── assertions/
 ├── bigquery/
-│   ├── profiling/
-│   └── validation/
+│   └── profiling/
+├── ingestion/
+│   ├── weather/
+│   └── holidays/
+├── ml/
+│   ├── sql/
+│   ├── models/
+│   └── outputs/
 ├── docs/
 │   ├── images/
-│   ├── business_rules.md
 │   ├── bronze_profile.md
 │   ├── anomalies.md
 │   └── ml_evaluation.md
-├── ingestion/
-├── ml/
 ├── flowchart.md
 ├── README.md
+├── package.json
+├── package-lock.json
 └── workflow_settings.yaml
 ```
+
+## Notes on Authorship and Method
+
+Overall, this project is my own work and idea. But to be honest, I don't code everything completely from scratch or just code everything on the fly without any reference. I do use AI to assist me, especially for validating my logic, testing the logic, fixing and repairing code, debugging issues, and scaffolding the project structure.
+
+### The hardest part: defining an "overworker"
+
+The hardest part was determining the overworkers. The 8h break logic isn't usable here
+because the dataset has no driver ID — only `taxi_id`, which identifies the vehicle, not the
+person. An 8h gap in a vehicle's activity doesn't prove that any driver rested for 8h,
+since the same cab is often shared across shifts by different drivers.
+
+So I tweaked the logic a little, keeping the same theme of overwork but measuring it on the
+vehicle instead of the driver, by creating the `fact_vehicle_activity_day` table. The 12-hour
+threshold comes from the same Chicago ordinance as the 8-hour break
+([MCC 9-112-250](https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2648500)):
+a chauffeur who drives 12 consecutive hours must then rest 8. I used the half the data can
+actually measure.
+
+Logic explained in [`docs/fact_vehicle_activity_day_logic.md`](docs/fact_vehicle_activity_day_logic.md).
