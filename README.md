@@ -319,7 +319,6 @@ So I tweaked the logic a little, keeping the same theme of overwork but measurin
 vehicle instead of the driver, by creating the `fact_vehicle_activity_day` table. The 12-hour
 threshold comes from the same Chicago ordinance as the 8-hour break
 ([MCC 9-112-250](https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2648500)):
-a chauffeur who drives 12 consecutive hours must then rest 8. I used the half the data can
-actually measure.
+a chauffeur who drives 12 consecutive hours must then rest 8h.
 
 Logic explained in [`docs/fact_vehicle_activity_day_logic.md`](docs/fact_vehicle_activity_day_logic.md).
