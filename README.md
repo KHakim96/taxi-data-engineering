@@ -306,6 +306,8 @@ taxi-data-engineering/
 
 Overall, this project is my own work and idea. But to be honest, I don't code everything completely from scratch or just code everything on the fly without any reference. I do use AI to assist me, especially for validating my logic, testing the logic, fixing and repairing code, debugging issues, and scaffolding the project structure.
 
+Final repository cleanup and documentation review were completed with assistance from Claude Code, including removal of obsolete files, documentation refinement, and final repository housekeeping.
+
 ### The hardest part: defining an "overworker"
 
 The hardest part was determining the overworkers. The 8h break logic isn't usable here
