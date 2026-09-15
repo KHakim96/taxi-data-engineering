@@ -8,6 +8,9 @@ This project builds an end-to-end data engineering and analytics pipeline using 
 **Looker Studio:**  
 [Open Looker Dashboard](https://datastudio.google.com/reporting/e82a4c71-f15b-4b32-9e04-e90dc1574f1a)
 
+> **Note:** The hashed `taxi_id` is long and not user-friendly, so readable, company-specific **Taxi Labels** are used in the dashboard instead. The original `taxi_id` remains the underlying identifier.
+
+
 ## Architecture
 
 This project follows a **Medallion Architecture**:
